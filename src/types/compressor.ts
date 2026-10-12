@@ -5,7 +5,6 @@ export interface CompressionSettings {
   quality: number;
   format?: ImageFormat;
   maxColors?: number;
-  stripExif?: boolean;
 }
 
 export interface ExifTag {
@@ -31,5 +30,6 @@ export interface CompressedFileItem {
   savingsPercentage: number;
   settings: CompressionSettings;
   exifTags?: ExifTag[];
+  exifOriginalCount?: number;
   error?: string;
 }

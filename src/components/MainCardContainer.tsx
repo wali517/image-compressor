@@ -1,15 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { CompressedFileItem, AppTab, ImageFormat } from '../types/compressor';
-import { formatBytes } from '../lib/compressor';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  X,
-  Download,
-  CheckCircle2,
-  RefreshCw,
-} from 'lucide-react';
+import type { CompressedFileItem, AppTab, ImageFormat } from '../types/compressor';
+import { acceptAttribute, formatBytes } from '../lib/compressor';
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2, Settings, X } from 'lucide-react';
 
 interface MainCardContainerProps {
   activeTab: AppTab;
@@ -25,9 +17,43 @@ interface MainCardContainerProps {
   onDownloadItem: (item: CompressedFileItem) => void;
   targetFormat: ImageFormat;
   onTargetFormatChange: (format: ImageFormat) => void;
+  unsupportedFormats: ImageFormat[];
+  notice: string;
   isProcessing: boolean;
   isZipping: boolean;
 }
+
+const TABS: { id: AppTab; label: string }[] = [
+  { id: 'converter', label: 'Converter' },
+  { id: 'compressor', label: 'Compressor' },
+];
+
+const FORMAT_LABEL: Record<ImageFormat, string> = { jpeg: 'JPG', png: 'PNG', webp: 'WEBP', gif: 'GIF', avif: 'AVIF' };
+const TARGET_FORMATS: ImageFormat[] = ['jpeg', 'png', 'webp', 'avif'];
+
+const PROCESS_LABEL: Record<AppTab, string> = {
+  converter: 'CONVERT',
+  compressor: 'COMPRESS',
+  exif: 'BULK REMOVE',
+};
+
+const tabClass = (active: boolean) =>
+  `px-6 py-2.5 rounded-t-lg font-semibold text-sm transition-all border ${
+    active
+      ? 'bg-white text-[#D44D3B] border-slate-300 border-b-white z-20 shadow-sm'
+      : 'bg-[#eaeeef] text-[#38404B] border-slate-300 hover:bg-[#e1e6e8]'
+  }`;
+
+const bigButton =
+  'relative uppercase text-xs font-semibold h-[2.5em] px-5 rounded-[6px] min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm text-white';
+
+const Badge: React.FC<{ value: number; color: string }> = ({ value, color }) => (
+  <span
+    className={`absolute -top-2 -right-2 ${color} border-2 border-white text-white font-bold text-[10px] w-6 h-6 rounded-full flex items-center justify-center shadow`}
+  >
+    {value}
+  </span>
+);
 
 export const MainCardContainer: React.FC<MainCardContainerProps> = ({
   activeTab,
@@ -43,6 +69,8 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
   onDownloadItem,
   targetFormat,
   onTargetFormatChange,
+  unsupportedFormats,
+  notice,
   isProcessing,
   isZipping,
 }) => {
@@ -66,15 +94,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const validFiles = Array.from(e.dataTransfer.files).filter((file) =>
-        /^image\/(jpeg|png|webp|gif|avif)$/.test(file.type) || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(file.name)
-      );
-      if (validFiles.length > 0) {
-        onFilesSelected(validFiles);
-      }
-    }
+    if (e.dataTransfer.files.length > 0) onFilesSelected(Array.from(e.dataTransfer.files));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,100 +105,128 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
   };
 
   const scroll = (direction: 'left' | 'right') => {
-    if (scrollRef.current) {
-      const amount = direction === 'left' ? -260 : 260;
-      scrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
-    }
+    scrollRef.current?.scrollBy({ left: direction === 'left' ? -260 : 260, behavior: 'smooth' });
   };
 
-  const completedCount = items.filter((i) => i.status === 'completed' || i.status === 'optimized').length;
-  const currentFormat = items.length > 0 ? items[0].format : null;
+  const doneCount = items.filter((i) => i.compressedBlob).length;
+  const pendingCount = items.filter((i) =>
+    activeTab === 'converter'
+      ? i.status !== 'completed' || i.settings.format !== targetFormat
+      : i.status === 'pending'
+  ).length;
+  const sourceFormat = items.length > 0 ? items[0].format : null;
+  const allConverted = activeTab === 'converter' && items.length > 0 && pendingCount === 0;
+
+  const renderOverlay = (item: CompressedFileItem) => {
+    if (item.status === 'converting') {
+      return (
+        <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-2 text-center">
+          <Settings className="w-7 h-7 text-[#38404B] animate-spin mb-1" />
+          <span className="text-[10px] font-bold text-[#38404B] uppercase tracking-wider">PROCESSING...</span>
+          <div className="absolute bottom-0 left-0 right-0 h-2 bg-[repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1_6px,#f1f5f9_6px,#f1f5f9_12px)]" />
+        </div>
+      );
+    }
+
+    if (item.status === 'error') {
+      return (
+        <div
+          className="absolute inset-0 bg-red-900/70 flex flex-col items-center justify-center text-center p-1"
+          title={item.error}
+        >
+          <AlertCircle className="w-5 h-5 text-white mb-0.5" />
+          <span className="text-[9px] font-bold text-white uppercase leading-tight">{item.error ?? 'Error'}</span>
+        </div>
+      );
+    }
+
+    if (activeTab === 'exif') {
+      if (!item.exifTags) {
+        return (
+          <div className="absolute inset-0 bg-black/45 flex flex-col items-center justify-center text-center">
+            <Settings className="w-6 h-6 text-white animate-spin mb-1" />
+            <span className="text-[10px] font-bold text-white uppercase tracking-wider">READING...</span>
+          </div>
+        );
+      }
+      const now = item.exifTags.length;
+      const before = item.exifOriginalCount ?? now;
+      const cleaned = item.status === 'completed' && before !== now;
+      return (
+        <div className="absolute inset-0 bg-black/45 flex flex-col items-center justify-center text-center pointer-events-none">
+          <span className="text-2xl font-black text-white font-mono leading-none">
+            {cleaned ? `${now} (${before})` : now}
+          </span>
+          <span className="text-[11px] font-bold text-white mt-1">tags</span>
+        </div>
+      );
+    }
+
+    if (item.status === 'pending') {
+      return (
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+          <span className="text-2xl font-black text-white uppercase tracking-wider font-mono drop-shadow">
+            {FORMAT_LABEL[item.format]}
+          </span>
+        </div>
+      );
+    }
+
+    if (item.status === 'optimized') {
+      return (
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex flex-col items-center justify-center text-center p-1 pointer-events-none">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 mb-0.5" />
+          <span className="text-[9px] font-bold text-white uppercase tracking-wider">OPTIMIZED</span>
+        </div>
+      );
+    }
+
+    if (item.status === 'completed') {
+      const label =
+        activeTab === 'converter'
+          ? FORMAT_LABEL[item.settings.format ?? item.format]
+          : item.savingsPercentage > 0
+            ? `-${item.savingsPercentage}%`
+            : null;
+      if (!label) return null;
+      return (
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
+          <span className="text-2xl font-black text-white tracking-tight font-mono drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+            {label}
+          </span>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="w-full max-w-[970px] mx-auto my-6 px-3">
       <div className="w-full flex items-center justify-between -mb-[1px] relative z-10 font-sans">
         <div className="flex items-center space-x-1">
-          <button
-            onClick={() => onTabChange('converter')}
-            className={`px-6 py-2.5 rounded-t-lg font-semibold text-sm transition-all border ${
-              activeTab === 'converter'
-                ? 'bg-white text-[#D44D3B] border-slate-300 border-b-white z-20 shadow-sm'
-                : 'bg-[#eaeeef] text-[#38404B] border-slate-300 hover:bg-[#e1e6e8]'
-            }`}
-          >
-            Converter
-          </button>
-
-          <button
-            onClick={() => onTabChange('compressor')}
-            className={`px-6 py-2.5 rounded-t-lg font-semibold text-sm transition-all border ${
-              activeTab === 'compressor'
-                ? 'bg-white text-[#D44D3B] border-slate-300 border-b-white z-20 shadow-sm'
-                : 'bg-[#eaeeef] text-[#38404B] border-slate-300 hover:bg-[#e1e6e8]'
-            }`}
-          >
-            Compressor
-          </button>
+          {TABS.map((tab) => (
+            <button key={tab.id} onClick={() => onTabChange(tab.id)} className={tabClass(activeTab === tab.id)}>
+              {tab.label}
+            </button>
+          ))}
         </div>
-
-        <button
-          onClick={() => onTabChange('exif')}
-          className={`px-6 py-2.5 rounded-t-lg font-semibold text-sm transition-all border ${
-            activeTab === 'exif'
-              ? 'bg-white text-[#D44D3B] border-slate-300 border-b-white z-20 shadow-sm'
-              : 'bg-[#eaeeef] text-[#38404B] border-slate-300 hover:bg-[#e1e6e8]'
-          }`}
-        >
+        <button onClick={() => onTabChange('exif')} className={tabClass(activeTab === 'exif')}>
           EXIF
         </button>
       </div>
 
       <div className="w-full bg-white border border-slate-300 rounded-b-xl shadow-[0_5px_16px_-2px_rgba(42,115,217,0.2)] p-6 font-sans">
-        
-        {activeTab === 'converter' && (
-          <div className="w-full flex flex-col items-center justify-center mb-5 bg-[#f8fafc] p-3 rounded-lg border border-slate-200 text-xs font-semibold text-[#38404B]">
-            <span className="uppercase tracking-wider mb-2">Convert To Target Format:</span>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {(['jpeg', 'png', 'webp', 'avif'] as ImageFormat[]).map((fmt) => {
-                const isSameAsOriginal = currentFormat === fmt;
-                const isSelected = targetFormat === fmt;
-
-                return (
-                  <button
-                    key={fmt}
-                    onClick={() => {
-                      if (!isSameAsOriginal) {
-                        onTargetFormatChange(fmt);
-                      }
-                    }}
-                    disabled={isSameAsOriginal}
-                    className={`px-4 py-1.5 rounded text-xs font-bold font-mono uppercase transition-all ${
-                      isSameAsOriginal
-                        ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-60'
-                        : isSelected
-                        ? 'bg-[#2a73d9] text-white shadow-sm ring-2 ring-[#2a73d9]/30'
-                        : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 cursor-pointer'
-                    }`}
-                  >
-                    {fmt} {isSameAsOriginal && '(Same)'}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         <div className="flex items-center justify-center space-x-4 mb-4">
-          <label className="bg-[#2a73d9] hover:bg-[#205db3] text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-[6px] min-w-[11em] inline-flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95">
+          <label className={`${bigButton} bg-[#2a73d9] hover:bg-[#205db3] cursor-pointer active:scale-95`}>
             <svg className="w-4 h-4 mr-2 fill-current" viewBox="0 0 16 16">
-              <path d="M8 12V4M4 8l4-4 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8 12V4M4 8l4-4 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <span>SELECT FILES</span>
             <input
               ref={inputRef}
               type="file"
               multiple
-              accept=".jpg,.jpeg,.png,.webp,.gif,.avif"
+              accept={acceptAttribute(activeTab)}
               className="hidden"
               onChange={handleInputChange}
             />
@@ -187,10 +235,10 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
           <button
             onClick={onClearAll}
             disabled={items.length === 0}
-            className="bg-[#D44D3B] hover:bg-[#b83d2e] disabled:opacity-40 text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-[6px] min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm"
+            className={`${bigButton} bg-[#D44D3B] hover:bg-[#b83d2e] disabled:opacity-40`}
           >
             <svg className="w-4 h-4 mr-2 fill-current" viewBox="0 0 16 16">
-              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
             <span>CLEAR</span>
           </button>
@@ -211,7 +259,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
           >
             <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
           </button>
-
           <button
             onClick={() => scroll('right')}
             disabled={items.length === 0}
@@ -225,31 +272,20 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
               onClick={() => inputRef.current?.click()}
               className="absolute inset-[0.5em_3em] border-2 border-dashed border-[#b5cef2] rounded-lg flex items-center justify-center cursor-pointer transition-colors hover:border-[#8ab5ee]"
             >
-              <p className="text-base font-semibold text-[#b5cef2] tracking-wide">
-                Drop Your Files Here
-              </p>
+              <p className="text-base font-semibold text-[#b5cef2] tracking-wide">Drop Your Files Here</p>
             </div>
           ) : (
-            <div
-              ref={scrollRef}
-              className="w-full h-full flex items-center space-x-3 overflow-x-auto px-12 py-2 scrollbar-none"
-            >
+            <div ref={scrollRef} className="w-full h-full flex items-center space-x-3 overflow-x-auto px-12 py-2 scrollbar-none">
               {items.map((item) => {
                 const isSelected = item.id === selectedId;
-                const displayUrl = item.compressedUrl || item.originalUrl;
-                const isDone = item.status === 'completed';
-                const isOptimized = item.status === 'optimized';
-                const isItemCompressing = item.status === 'converting';
-                const savings = item.savingsPercentage;
+                const canSave = (item.status === 'completed' || item.status === 'optimized') && item.compressedBlob;
 
                 return (
                   <div
                     key={item.id}
                     onClick={() => onSelectItem(item.id)}
                     className={`relative w-[163px] h-[163px] flex-shrink-0 bg-white rounded-lg border p-2 flex flex-col justify-between cursor-pointer transition-all overflow-hidden ${
-                      isSelected
-                        ? 'border-[#38404B] ring-4 ring-[#38404B] shadow-md'
-                        : 'border-slate-200 hover:border-slate-300'
+                      isSelected ? 'border-[#38404B] ring-4 ring-[#38404B] shadow-md' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center justify-between z-10 text-[10px] font-sans">
@@ -270,62 +306,27 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
 
                     <div className="relative w-full h-[90px] bg-[linear-gradient(45deg,#e0e0e0_25%,transparent_25%),linear-gradient(-45deg,#e0e0e0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e0e0e0_75%),linear-gradient(-45deg,transparent_75%,#e0e0e0_75%)] [background-size:16px_16px] [background-position:0_0,0_8px,8px_-8px,-8px_0px] rounded border border-slate-200 overflow-hidden flex items-center justify-center my-1">
                       <img
-                        src={displayUrl}
+                        src={item.compressedUrl || item.originalUrl}
                         alt={item.name}
                         className="max-h-full max-w-full object-contain"
                       />
-
-                      {item.status === 'pending' && (
-                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
-                          <span className="text-2xl font-black text-white uppercase tracking-wider font-mono drop-shadow">
-                            {item.format}
-                          </span>
-                        </div>
-                      )}
-
-                      {isItemCompressing && (
-                        <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-2 text-center">
-                          <RefreshCw className="w-6 h-6 text-[#2a73d9] animate-spin mb-1" />
-                          <span className="text-[10px] font-bold text-[#38404B] uppercase tracking-wider">
-                            PROCESSING...
-                          </span>
-                        </div>
-                      )}
-
-                      {isDone && savings > 0 && (
-                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
-                          <span className="text-2xl font-black text-white tracking-tight font-mono drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                            -{savings}%
-                          </span>
-                        </div>
-                      )}
-
-                      {isOptimized && (
-                        <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex flex-col items-center justify-center text-center p-1 pointer-events-none">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-400 mb-0.5" />
-                          <span className="text-[9px] font-bold text-white uppercase tracking-wider">
-                            OPTIMIZED
-                          </span>
-                        </div>
-                      )}
+                      {renderOverlay(item)}
                     </div>
 
                     <div className="text-[10px] font-mono flex justify-between items-center text-slate-600">
                       <span>{formatBytes(item.originalSize)}</span>
-                      {isDone && (
-                        <span className="font-bold text-[#1a7030]">
-                          {formatBytes(item.compressedSize)}
-                        </span>
+                      {item.status === 'completed' && item.compressedSize > 0 && (
+                        <span className="font-bold text-[#1a7030]">{formatBytes(item.compressedSize)}</span>
                       )}
                     </div>
 
-                    {(isDone || isOptimized) && item.compressedBlob && (
+                    {canSave && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onDownloadItem(item);
                         }}
-                        className="w-full bg-[#1a7030] hover:bg-[#135424] text-white text-[10px] font-bold uppercase py-1 rounded flex items-center justify-center space-x-1 mt-1 transition-colors"
+                        className="w-full bg-[#c9e7cf] hover:bg-[#b4dbbd] text-[#1a3d24] text-[10px] font-bold uppercase py-1 rounded flex items-center justify-center space-x-1 mt-1 transition-colors"
                       >
                         <Download className="w-3 h-3" />
                         <span>SAVE</span>
@@ -338,60 +339,99 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
           )}
         </div>
 
-        <div className="flex items-center justify-center space-x-4">
-          <button
-            onClick={onCompressAll}
-            disabled={items.length === 0 || isProcessing}
-            className="relative bg-[#38404B] hover:bg-[#2c323b] disabled:opacity-40 text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-[6px] min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin text-white" />
-                <span>PROCESSING...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 mr-2 fill-current" viewBox="0 0 16 16">
-                  <path d="M2 2l4 4M14 2l-4 4M2 14l4-4M14 14l-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                <span>{activeTab === 'converter' ? 'CONVERT' : 'COMPRESS'}</span>
-              </>
-            )}
+        {notice && <p className="text-center text-xs font-semibold text-amber-700 mb-3">{notice}</p>}
 
-            {items.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-[#38404B] border-2 border-white text-white font-bold text-[10px] w-6 h-6 rounded-full flex items-center justify-center shadow">
-                {items.length}
-              </span>
-            )}
-          </button>
+        <div className="flex items-center justify-center flex-wrap gap-4">
+          {activeTab === 'converter' && (
+            <div className="inline-flex rounded-[6px] border border-slate-300 overflow-hidden text-xs font-bold h-[2.5em]">
+              {TARGET_FORMATS.map((fmt) => {
+                const isSelected = targetFormat === fmt;
+                const sameAsSource = sourceFormat === fmt;
+                const unsupported = unsupportedFormats.includes(fmt);
+                const disabled = items.length === 0 || sameAsSource || unsupported;
+                return (
+                  <button
+                    key={fmt}
+                    onClick={() => onTargetFormatChange(fmt)}
+                    disabled={disabled}
+                    title={unsupported ? `Your browser cannot create ${FORMAT_LABEL[fmt]} images` : undefined}
+                    className={`px-4 transition-colors border-r border-slate-300 last:border-r-0 ${
+                      isSelected
+                        ? items.length === 0
+                          ? 'bg-slate-400 text-white'
+                          : 'bg-[#38404B] text-white'
+                        : disabled
+                          ? 'bg-white text-slate-300 cursor-not-allowed'
+                          : 'bg-white text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {FORMAT_LABEL[fmt]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-          <button
-            onClick={onDownloadAllZip}
-            disabled={completedCount === 0 || isZipping}
-            className="relative bg-[#1a7030] hover:bg-[#135424] disabled:opacity-40 text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-[6px] min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm"
-          >
-            {isZipping ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin text-white" />
-                <span>ZIPPING...</span>
-              </>
-            ) : (
-              <>
+          {activeTab === 'converter' ? (
+            <button
+              onClick={allConverted ? onDownloadAllZip : onCompressAll}
+              disabled={items.length === 0 || isProcessing || isZipping}
+              className={`${bigButton} ${
+                allConverted ? 'bg-[#1a7030] hover:bg-[#135424]' : 'bg-[#38404B] hover:bg-[#2c323b]'
+              } disabled:opacity-40`}
+            >
+              {isProcessing || isZipping ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
                 <svg className="w-4 h-4 mr-2 fill-current" viewBox="0 0 16 16">
-                  <path d="M8 4v8M4 8l4 4 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path
+                    d={allConverted ? 'M8 4v8M4 8l4 4 4-4' : 'M2 2l4 4M14 2l-4 4M2 14l4-4M14 14l-4-4'}
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
+              )}
+              <span>{allConverted ? 'SAVE ALL' : 'CONVERT'}</span>
+              {items.length > 0 && <Badge value={items.length} color={allConverted ? 'bg-[#1a7030]' : 'bg-[#38404B]'} />}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onCompressAll}
+                disabled={pendingCount === 0 || isProcessing}
+                className={`${bigButton} bg-[#38404B] hover:bg-[#2c323b] disabled:opacity-40`}
+              >
+                {isProcessing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4 mr-2 fill-current" viewBox="0 0 16 16">
+                    <path d="M2 2l4 4M14 2l-4 4M2 14l4-4M14 14l-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                )}
+                <span>{PROCESS_LABEL[activeTab]}</span>
+                {pendingCount > 0 && <Badge value={pendingCount} color="bg-[#38404B]" />}
+              </button>
+
+              <button
+                onClick={onDownloadAllZip}
+                disabled={doneCount === 0 || isZipping}
+                className={`${bigButton} bg-[#1a7030] hover:bg-[#135424] disabled:opacity-40`}
+              >
+                {isZipping ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4 mr-2 fill-current" viewBox="0 0 16 16">
+                    <path d="M8 4v8M4 8l4 4 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
                 <span>SAVE ALL</span>
-              </>
-            )}
-
-            {completedCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-[#1a7030] border-2 border-white text-white font-bold text-[10px] w-6 h-6 rounded-full flex items-center justify-center shadow">
-                {completedCount}
-              </span>
-            )}
-          </button>
+                {doneCount > 0 && <Badge value={doneCount} color="bg-[#1a7030]" />}
+              </button>
+            </>
+          )}
         </div>
-
       </div>
     </div>
   );

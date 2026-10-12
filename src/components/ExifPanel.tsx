@@ -1,44 +1,100 @@
-import React from 'react';
-import { CompressedFileItem } from '../types/compressor';
-import { ShieldCheck } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import type { CompressedFileItem } from '../types/compressor';
+import { Download, Loader2, Search, XCircle } from 'lucide-react';
 
 interface ExifPanelProps {
   item: CompressedFileItem | null;
+  onRemoveExif: (id: string) => void;
+  onDownloadItem: (item: CompressedFileItem) => void;
+  isBusy: boolean;
 }
 
-export const ExifPanel: React.FC<ExifPanelProps> = ({ item }) => {
+export const ExifPanel: React.FC<ExifPanelProps> = ({ item, onRemoveExif, onDownloadItem, isBusy }) => {
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    setQuery('');
+  }, [item?.id]);
+
   if (!item) return null;
 
-  const tags = item.exifTags || [];
+  const tags = item.exifTags;
+  const cleaned = item.status === 'completed' && Boolean(item.compressedBlob);
+  const needle = query.trim().toLowerCase();
+  const visible = (tags ?? []).filter(
+    (tag) => !needle || tag.name.toLowerCase().includes(needle) || tag.value.toLowerCase().includes(needle)
+  );
+
+  let emptyMessage = '';
+  if (tags && tags.length === 0) emptyMessage = 'No metadata found in this file.';
+  else if (tags && visible.length === 0) emptyMessage = `No tags found for "${query.trim()}"`;
 
   return (
-    <section className="w-full max-w-[970px] mx-auto mt-6 bg-white border border-[#f2f2f2] rounded-xl shadow-[0_5px_16px_-2px_rgba(42,115,217,0.2)] p-6 font-sans">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
-        <div>
-          <h2 className="text-base font-bold text-[#38404B] truncate max-w-lg">
-            EXIF Viewer & Metadata Inspector: {item.name}
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Inspecting metadata, camera info, and color profiles.
-          </p>
-        </div>
+    <section className="w-full max-w-[970px] mx-auto px-3 mb-10">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 font-sans">
+        <h2 className="text-center text-base font-bold text-[#1f2933] break-all mb-4">{item.name}</h2>
 
-        <div className="flex items-center space-x-1 text-xs text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 font-semibold">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>EXIF Stripping Enabled on Download</span>
-        </div>
-      </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <label className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search tags..."
+              className="w-full h-9 pl-9 pr-3 text-sm border border-slate-300 rounded-md focus:outline-none focus:border-[#2a73d9]"
+            />
+          </label>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {tags.map((tag) => (
-          <div
-            key={tag.name}
-            className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs"
-          >
-            <span className="font-semibold text-slate-600">{tag.name}</span>
-            <span className="font-mono font-bold text-[#38404B]">{tag.value}</span>
+          <div className="flex items-center gap-2">
+            {cleaned && (
+              <button
+                onClick={() => onDownloadItem(item)}
+                className="h-9 px-4 text-xs font-semibold uppercase rounded-md bg-[#1a7030] hover:bg-[#135424] text-white inline-flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Save
+              </button>
+            )}
+            <button
+              onClick={() => onRemoveExif(item.id)}
+              disabled={cleaned || isBusy || !tags || item.status === 'error'}
+              className="h-9 px-4 text-xs font-semibold uppercase rounded-md border border-[#38404B] bg-[#38404B] text-white hover:bg-white hover:text-[#38404B] disabled:bg-slate-300 disabled:border-slate-300 disabled:text-white disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
+            >
+              {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+              Remove EXIF
+            </button>
           </div>
-        ))}
+        </div>
+
+        {item.status === 'error' && item.error && (
+          <p className="text-sm text-red-600 font-semibold mb-3">{item.error}</p>
+        )}
+
+        {!tags ? (
+          <p className="text-center text-sm text-slate-500 py-8">Reading metadata...</p>
+        ) : emptyMessage ? (
+          <p className="text-center text-sm text-slate-500 py-8">{emptyMessage}</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-slate-200">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-[#8f8f8f] text-white text-xs uppercase tracking-wide">
+                  <th className="px-4 py-3 w-1/3 font-semibold">Tag</th>
+                  <th className="px-4 py-3 font-semibold">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((tag, index) => (
+                  <tr key={`${tag.name}-${index}`} className="border-t border-slate-100">
+                    <td className="px-4 py-2.5 font-semibold text-slate-800 align-top">{tag.name}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-slate-600 break-all align-top">{tag.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   );
