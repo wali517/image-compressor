@@ -1,10 +1,10 @@
-export type ImageFormat = 'jpeg' | 'png' | 'webp' | 'gif' | 'svg' | 'avif';
+export type ImageFormat = 'jpeg' | 'png' | 'webp' | 'gif' | 'avif';
 export type AppTab = 'converter' | 'compressor' | 'exif';
 
 export interface CompressionSettings {
-  quality: number; // 10 to 100
-  format?: ImageFormat; // Target format
-  maxColors?: number; // For PNG palette reduction
+  quality: number;
+  format?: ImageFormat;
+  maxColors?: number;
   stripExif?: boolean;
 }
 
@@ -22,8 +22,6 @@ export interface CompressedFileItem {
   originalHeight: number;
   originalUrl: string;
   format: ImageFormat;
-  
-  // Status matching imagecompressor.com
   status: 'pending' | 'converting' | 'completed' | 'optimized' | 'error';
   compressedBlob: Blob | null;
   compressedUrl: string | null;
@@ -31,8 +29,6 @@ export interface CompressedFileItem {
   compressedWidth: number;
   compressedHeight: number;
   savingsPercentage: number;
-  
-  // Custom settings per file
   settings: CompressionSettings;
   exifTags?: ExifTag[];
   error?: string;

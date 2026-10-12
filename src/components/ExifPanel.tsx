@@ -1,6 +1,6 @@
 import React from 'react';
 import { CompressedFileItem } from '../types/compressor';
-import { ShieldCheck, Info } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 interface ExifPanelProps {
   item: CompressedFileItem | null;

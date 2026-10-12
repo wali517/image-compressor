@@ -1,10 +1,9 @@
 import React from 'react';
-import { ArrowRight, BookOpen, ShieldCheck, Sparkles, HelpCircle } from 'lucide-react';
+import { ArrowRight, BookOpen } from 'lucide-react';
 
 export const HowItWorks: React.FC = () => {
   return (
     <div className="w-full max-w-[970px] mx-auto mt-12 space-y-8 text-[#38404B] font-sans">
-      {/* 1. HOW IT WORKS SECTION */}
       <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#38404B] mb-3">How It Works</h2>
         <p className="text-sm text-slate-600 leading-relaxed">
@@ -12,7 +11,6 @@ export const HowItWorks: React.FC = () => {
         </p>
       </div>
 
-      {/* 2. FEATURED HOW-TO BANNER */}
       <div className="bg-gradient-to-r from-[#2a73d9]/10 via-[#2a73d9]/5 to-transparent border border-[#2a73d9]/20 rounded-xl p-6 transition-all hover:border-[#2a73d9]/40">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -30,7 +28,6 @@ export const HowItWorks: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. LONG POST-BANNER DEEP-DIVE ARTICLES */}
       <div className="bg-white border border-slate-200/80 rounded-xl p-6 sm:p-8 space-y-6 shadow-sm text-sm">
         <div>
           <h2 className="text-base font-bold text-[#38404B] mb-2">JPEG Compression</h2>
@@ -78,7 +75,6 @@ export const HowItWorks: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. FROM THE BLOG SECTION */}
       <div className="space-y-4">
         <h3 className="text-base font-bold text-[#38404B] flex items-center space-x-2">
           <BookOpen className="w-4 h-4 text-[#2a73d9]" />

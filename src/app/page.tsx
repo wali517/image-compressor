@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import JSZip from 'jszip';
 import { CompressedFileItem, CompressionSettings, AppTab, ImageFormat } from '../types/compressor';
 import {
@@ -17,16 +17,11 @@ import { ExifPanel } from '../components/ExifPanel';
 import { HowItWorks } from '../components/HowItWorks';
 import { Footer } from '../components/Footer';
 
-export default function Home() {
+export default function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('compressor');
   
-  // SEPARATE FILE QUEUES FOR CONVERTER AND COMPRESSOR
   const [converterItems, setConverterItems] = useState<CompressedFileItem[]>([]);
   const [compressorItems, setCompressorItems] = useState<CompressedFileItem[]>([]);
-  const itemsRef = useRef<CompressedFileItem[]>([]);
-  useEffect(() => {
-    itemsRef.current = [...converterItems, ...compressorItems];
-  }, [converterItems, compressorItems]);
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -34,13 +29,12 @@ export default function Home() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [targetFormat, setTargetFormat] = useState<ImageFormat>('webp');
 
-  // Active items list based on active tab
   const items = activeTab === 'converter' ? converterItems : compressorItems;
   const setItems = activeTab === 'converter' ? setConverterItems : setCompressorItems;
 
   useEffect(() => {
     return () => {
-      itemsRef.current.forEach((item) => {
+      [...converterItems, ...compressorItems].forEach((item) => {
         if (item.originalUrl) URL.revokeObjectURL(item.originalUrl);
         if (item.compressedUrl) URL.revokeObjectURL(item.compressedUrl);
       });
@@ -54,9 +48,6 @@ export default function Home() {
     const settings = customSettings || item.settings;
 
     try {
-      // Simulate realistic processing time (~1.2s delay) so user sees "PROCESSING..." sign
-      await new Promise((res) => setTimeout(res, 1200));
-
       let result;
       if (activeTab === 'converter') {
         result = await convertImage(item.file, targetFormat, settings.quality);
@@ -91,16 +82,15 @@ export default function Home() {
         settings: {
           ...settings,
           format: activeTab === 'converter' ? targetFormat : settings.format,
-          quality: 'appliedQuality' in result ? result.appliedQuality : settings.quality,
+          quality: 'appliedQuality' in result ? (result as any).appliedQuality : settings.quality,
         },
       };
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Processing failed';
+    } catch (err: any) {
       console.error(`Error processing ${item.name}:`, err);
       return {
         ...item,
         status: 'error',
-        error: errorMessage,
+        error: err.message || 'Processing failed',
       };
     }
   };
@@ -111,7 +101,6 @@ export default function Home() {
     if (newFiles.length > 0) {
       const firstFmt = detectImageFormat(newFiles[0]);
       if (activeTab === 'converter') {
-        // Automatically select a valid target format different from uploaded file
         setTargetFormat(firstFmt === 'png' ? 'webp' : 'png');
       }
     }
@@ -131,7 +120,7 @@ export default function Home() {
         originalHeight: dimensions.height,
         originalUrl,
         format,
-        status: 'converting', // Show "PROCESSING..." sign initially
+        status: 'converting',
         compressedBlob: null,
         compressedUrl: null,
         compressedSize: 0,
@@ -154,7 +143,6 @@ export default function Home() {
       setSelectedId(newItems[0].id);
     }
 
-    // Process files with visual "PROCESSING..." status overlay
     for (const item of newItems) {
       setProcessingId(item.id);
       const compressed = await processSingleItem(item);
@@ -291,8 +279,7 @@ export default function Home() {
     <div className="min-h-screen bg-[#fdfdfd] text-[#333] flex flex-col font-sans">
       <Header />
 
-      <main className="grow max-w-242.5 w-full mx-auto px-4 pt-6 pb-16">
-        {/* Header Title */}
+      <main className="flex-grow max-w-[970px] w-full mx-auto px-4 pt-6 pb-16">
         <div className="text-center max-w-2xl mx-auto mb-6">
           <h1 className="text-3xl font-extrabold text-[#38404B] tracking-tight">
             {activeTab === 'converter'
@@ -303,14 +290,13 @@ export default function Home() {
           </h1>
           <p className="text-sm text-slate-600 mt-2 leading-relaxed">
             {activeTab === 'converter'
-              ? 'Convert your JPEG, PNG, WebP, GIF, SVG, and AVIF images online.'
+              ? 'Convert your JPEG, PNG, WebP, GIF, and AVIF images online.'
               : activeTab === 'exif'
               ? 'View camera info, exposure details, and strip metadata from images.'
-              : 'Compress and optimize your JPEG, PNG, WebP, GIF, and SVG images.'}
+              : 'Compress and optimize your JPEG, PNG, WebP, GIF, and AVIF images.'}
           </p>
         </div>
 
-        {/* Main Card Container */}
         <MainCardContainer
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -329,7 +315,6 @@ export default function Home() {
           isZipping={isZipping}
         />
 
-        {/* Comparison or EXIF Panel */}
         {activeTab === 'exif' ? (
           <ExifPanel item={selectedItem} />
         ) : (
@@ -341,7 +326,6 @@ export default function Home() {
           />
         )}
 
-        {/* How It Works Section */}
         <HowItWorks />
       </main>
 

@@ -25,9 +25,6 @@ export function detectImageFormat(file: File): ImageFormat {
   if (type.includes('gif') || name.endsWith('.gif')) {
     return 'gif';
   }
-  if (type.includes('svg') || name.endsWith('.svg') || name.endsWith('.svgz')) {
-    return 'svg';
-  }
   if (type.includes('avif') || name.endsWith('.avif')) {
     return 'avif';
   }
@@ -37,71 +34,19 @@ export function detectImageFormat(file: File): ImageFormat {
 
 export function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve) => {
-    const format = detectImageFormat(file);
-    if (format === 'svg') {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'image/svg+xml');
-        const svg = doc.querySelector('svg');
-        
-        let width = 800;
-        let height = 600;
-
-        if (svg) {
-          const viewBox = svg.getAttribute('viewBox');
-          if (viewBox) {
-            const parts = viewBox.split(/[\s,]+/).map(Number);
-            if (parts.length >= 4 && parts[2] > 0 && parts[3] > 0) {
-              width = parts[2];
-              height = parts[3];
-            }
-          }
-          if (svg.getAttribute('width')) {
-            const w = parseFloat(svg.getAttribute('width') || '0');
-            if (w > 0) width = w;
-          }
-          if (svg.getAttribute('height')) {
-            const h = parseFloat(svg.getAttribute('height') || '0');
-            if (h > 0) height = h;
-          }
-        }
-        resolve({ width: Math.round(width), height: Math.round(height) });
-      };
-      reader.onerror = () => resolve({ width: 800, height: 600 });
-      reader.readAsText(file);
-    } else {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        const dimensions = { width: img.naturalWidth, height: img.naturalHeight };
-        URL.revokeObjectURL(url);
-        resolve(dimensions);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        resolve({ width: 0, height: 0 });
-      };
-      img.src = url;
-    }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const dimensions = { width: img.naturalWidth, height: img.naturalHeight };
+      URL.revokeObjectURL(url);
+      resolve(dimensions);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: 0, height: 0 });
+    };
+    img.src = url;
   });
-}
-
-export async function compressSvg(file: File): Promise<Blob> {
-  const text = await file.text();
-  
-  const cleaned = text
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
-    .replace(/<\?xml[\s\S]*?\?>/gi, '')
-    .replace(/<metadata>[\s\S]*?<\/metadata>/gi, '')
-    .replace(/<(title|desc)>\s*<\/(title|desc)>/gi, '')
-    .replace(/>\s+</g, '><')
-    .replace(/(\d+\.\d{3,})/g, (match) => parseFloat(match).toFixed(2).replace(/\.?0+$/, ''))
-    .trim();
-
-  return new Blob([cleaned], { type: 'image/svg+xml;charset=utf-8' });
 }
 
 function applyPngColorQuantization(ctx: CanvasRenderingContext2D, width: number, height: number, maxColors: number) {
@@ -191,20 +136,11 @@ function canvasProcess(
   });
 }
 
-/**
- * Image Conversion (Converter mode)
- */
 export async function convertImage(
   file: File,
   targetFormat: ImageFormat,
   quality: number = 80
 ): Promise<{ blob: Blob; width: number; height: number; appliedQuality: number }> {
-  if (targetFormat === 'svg') {
-    const blob = await compressSvg(file);
-    const dimensions = await getImageDimensions(file);
-    return { blob, width: dimensions.width, height: dimensions.height, appliedQuality: 100 };
-  }
-
   let targetMime = 'image/jpeg';
   if (targetFormat === 'png') targetMime = 'image/png';
   else if (targetFormat === 'webp') targetMime = 'image/webp';
@@ -214,7 +150,6 @@ export async function convertImage(
   let currentQuality = quality;
   let bestResult = await canvasProcess(file, targetMime, currentQuality, targetFormat, { quality, format: targetFormat });
 
-  // Size reduction guarantee: if converted file size is larger than original, step down quality
   while (bestResult.blob.size >= file.size && currentQuality > 15) {
     currentQuality -= 10;
     try {
@@ -235,20 +170,11 @@ export async function convertImage(
   };
 }
 
-/**
- * Image Compression (Compressor mode) with strict size reduction guarantee
- */
 export async function compressImage(
   file: File,
   settings: CompressionSettings
 ): Promise<{ blob: Blob; width: number; height: number; appliedQuality: number; isOptimizedOnly?: boolean }> {
   const format = settings.format || detectImageFormat(file);
-
-  if (format === 'svg') {
-    const blob = await compressSvg(file);
-    const dimensions = await getImageDimensions(file);
-    return { blob, width: dimensions.width, height: dimensions.height, appliedQuality: 100 };
-  }
 
   let targetMime = file.type;
   if (format === 'jpeg') targetMime = 'image/jpeg';
@@ -259,7 +185,6 @@ export async function compressImage(
   let currentQuality = settings.quality;
   let bestResult = await canvasProcess(file, targetMime, currentQuality, format, settings);
 
-  // STRICT GUARANTEE: Step down quality iteratively until compressed size < original file size
   while (bestResult.blob.size >= file.size && currentQuality > 15) {
     currentQuality -= 10;
     try {
@@ -272,7 +197,6 @@ export async function compressImage(
     }
   }
 
-  // If still larger, convert to WebP
   if (bestResult.blob.size >= file.size) {
     try {
       const webpResult = await canvasProcess(file, 'image/webp', currentQuality, 'webp', settings);
@@ -280,12 +204,9 @@ export async function compressImage(
         bestResult = webpResult;
       }
     } catch {
-      // Keep best
     }
   }
 
-  // Fallback protection: If file is already hyper-compressed and canvas cannot reduce further without corruption,
-  // use original file as blob so output size NEVER exceeds input size!
   let isOptimizedOnly = false;
   if (bestResult.blob.size > file.size) {
     bestResult.blob = file;

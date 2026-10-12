@@ -27,7 +27,6 @@ export const Footer: React.FC = () => {
   return (
     <footer className="w-full bg-white border-t border-slate-200 mt-16 font-sans text-xs text-slate-600">
       <div className="max-w-[970px] mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Copyright & Terms */}
         <p className="text-slate-600">
           &copy; imagecompressor.com <span className="mx-2 text-slate-300">|</span>{' '}
           <a href="#" className="text-[#2a73d9] hover:underline">
@@ -35,7 +34,6 @@ export const Footer: React.FC = () => {
           </a>
         </p>
 
-        {/* Language Selector Dropdown (matching imagecompressor.com) */}
         <div className="relative">
           <button
             onClick={() => setIsOpen(!isOpen)}

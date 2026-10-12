@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-import Image from 'next/image';
 import { CompressedFileItem, AppTab, ImageFormat } from '../types/compressor';
 import { formatBytes } from '../lib/compressor';
 import {
@@ -70,7 +69,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const validFiles = Array.from(e.dataTransfer.files).filter((file) =>
-        file.type.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|webp|gif|svg|avif)$/i)
+        /^image\/(jpeg|png|webp|gif|avif)$/.test(file.type) || /\.(jpg|jpeg|png|webp|gif|avif)$/i.test(file.name)
       );
       if (validFiles.length > 0) {
         onFilesSelected(validFiles);
@@ -96,11 +95,9 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
   const currentFormat = items.length > 0 ? items[0].format : null;
 
   return (
-    <div className="w-full max-w-242.5 mx-auto my-6 px-3">
-      {/* 1. SITE-SWITCH TABS BAR (Exact match to imagecompressor.com) */}
-      <div className="w-full flex items-center justify-between -mb-px relative z-10 font-sans">
+    <div className="w-full max-w-[970px] mx-auto my-6 px-3">
+      <div className="w-full flex items-center justify-between -mb-[1px] relative z-10 font-sans">
         <div className="flex items-center space-x-1">
-          {/* Converter Tab */}
           <button
             onClick={() => onTabChange('converter')}
             className={`px-6 py-2.5 rounded-t-lg font-semibold text-sm transition-all border ${
@@ -112,7 +109,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
             Converter
           </button>
 
-          {/* Compressor Tab */}
           <button
             onClick={() => onTabChange('compressor')}
             className={`px-6 py-2.5 rounded-t-lg font-semibold text-sm transition-all border ${
@@ -125,7 +121,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
           </button>
         </div>
 
-        {/* EXIF Tab */}
         <button
           onClick={() => onTabChange('exif')}
           className={`px-6 py-2.5 rounded-t-lg font-semibold text-sm transition-all border ${
@@ -138,15 +133,13 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
         </button>
       </div>
 
-      {/* 2. MAIN CARD CONTAINER (.files) */}
       <div className="w-full bg-white border border-slate-300 rounded-b-xl shadow-[0_5px_16px_-2px_rgba(42,115,217,0.2)] p-6 font-sans">
         
-        {/* Converter Target Format Bar */}
         {activeTab === 'converter' && (
           <div className="w-full flex flex-col items-center justify-center mb-5 bg-[#f8fafc] p-3 rounded-lg border border-slate-200 text-xs font-semibold text-[#38404B]">
             <span className="uppercase tracking-wider mb-2">Convert To Target Format:</span>
             <div className="flex flex-wrap items-center justify-center gap-2">
-              {(['jpeg', 'png', 'webp', 'svg', 'avif'] as ImageFormat[]).map((fmt) => {
+              {(['jpeg', 'png', 'webp', 'avif'] as ImageFormat[]).map((fmt) => {
                 const isSameAsOriginal = currentFormat === fmt;
                 const isSelected = targetFormat === fmt;
 
@@ -175,10 +168,8 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
           </div>
         )}
 
-        {/* TOP BUTTONS (.files__buttons) */}
         <div className="flex items-center justify-center space-x-4 mb-4">
-          {/* SELECT FILES button */}
-          <label className="bg-[#2a73d9] hover:bg-[#205db3] text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-md min-w-[11em] inline-flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95">
+          <label className="bg-[#2a73d9] hover:bg-[#205db3] text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-[6px] min-w-[11em] inline-flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95">
             <svg className="w-4 h-4 mr-2 fill-current" viewBox="0 0 16 16">
               <path d="M8 12V4M4 8l4-4 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -187,17 +178,16 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
               ref={inputRef}
               type="file"
               multiple
-              accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.avif"
+              accept=".jpg,.jpeg,.png,.webp,.gif,.avif"
               className="hidden"
               onChange={handleInputChange}
             />
           </label>
 
-          {/* CLEAR button */}
           <button
             onClick={onClearAll}
             disabled={items.length === 0}
-            className="bg-[#D44D3B] hover:bg-[#b83d2e] disabled:opacity-40 text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-md min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm"
+            className="bg-[#D44D3B] hover:bg-[#b83d2e] disabled:opacity-40 text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-[6px] min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm"
           >
             <svg className="w-4 h-4 mr-2 fill-current" viewBox="0 0 16 16">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -206,16 +196,14 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
           </button>
         </div>
 
-        {/* INNER DROP ZONE (.files__list-outer) */}
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`relative w-full h-45.75 mb-4 overflow-hidden rounded-lg transition-colors ${
+          className={`relative w-full h-[183px] mb-4 overflow-hidden rounded-lg transition-colors ${
             isDragging ? 'bg-[#2a73d9]/5' : ''
           }`}
         >
-          {/* Scroll Prev Button */}
           <button
             onClick={() => scroll('left')}
             disabled={items.length === 0}
@@ -224,7 +212,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
             <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
           </button>
 
-          {/* Scroll Next Button */}
           <button
             onClick={() => scroll('right')}
             disabled={items.length === 0}
@@ -233,7 +220,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
             <ChevronRight className="w-6 h-6 stroke-[2.5]" />
           </button>
 
-          {/* Empty Drop Caption */}
           {items.length === 0 ? (
             <div
               onClick={() => inputRef.current?.click()}
@@ -244,7 +230,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
               </p>
             </div>
           ) : (
-            /* Uploaded Image Cards List (1:1 Template matching imagecompressor.com) */
             <div
               ref={scrollRef}
               className="w-full h-full flex items-center space-x-3 overflow-x-auto px-12 py-2 scrollbar-none"
@@ -261,15 +246,14 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
                   <div
                     key={item.id}
                     onClick={() => onSelectItem(item.id)}
-                    className={`relative w-40.75 h-40.75 shrink-0 bg-white rounded-lg border p-2 flex flex-col justify-between cursor-pointer transition-all overflow-hidden ${
+                    className={`relative w-[163px] h-[163px] flex-shrink-0 bg-white rounded-lg border p-2 flex flex-col justify-between cursor-pointer transition-all overflow-hidden ${
                       isSelected
                         ? 'border-[#38404B] ring-4 ring-[#38404B] shadow-md'
                         : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    {/* Header Row: File Name & Close Button */}
                     <div className="flex items-center justify-between z-10 text-[10px] font-sans">
-                      <span className="truncate font-semibold text-slate-800 max-w-27.5" title={item.name}>
+                      <span className="truncate font-semibold text-slate-800 max-w-[110px]" title={item.name}>
                         {item.name}
                       </span>
                       <button
@@ -284,18 +268,13 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
                       </button>
                     </div>
 
-                    {/* Viewport Box with Imagecompressor.com Status Overlays */}
-                    <div className="relative w-full h-22.5 bg-[linear-gradient(45deg,#e0e0e0_25%,transparent_25%),linear-gradient(-45deg,#e0e0e0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e0e0e0_75%),linear-gradient(-45deg,transparent_75%,#e0e0e0_75%)] bg-size-[16px_16px] bg-position-[0_0,0_8px,8px_-8px,-8px_0px] rounded border border-slate-200 overflow-hidden flex items-center justify-center my-1">
-                      <Image
+                    <div className="relative w-full h-[90px] bg-[linear-gradient(45deg,#e0e0e0_25%,transparent_25%),linear-gradient(-45deg,#e0e0e0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e0e0e0_75%),linear-gradient(-45deg,transparent_75%,#e0e0e0_75%)] [background-size:16px_16px] [background-position:0_0,0_8px,8px_-8px,-8px_0px] rounded border border-slate-200 overflow-hidden flex items-center justify-center my-1">
+                      <img
                         src={displayUrl}
                         alt={item.name}
-                        fill
-                        unoptimized
-                        sizes="100vw"
-                        className="object-contain"
+                        className="max-h-full max-w-full object-contain"
                       />
 
-                      {/* State 1: Pending Format Sign */}
                       {item.status === 'pending' && (
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
                           <span className="text-2xl font-black text-white uppercase tracking-wider font-mono drop-shadow">
@@ -304,7 +283,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
                         </div>
                       )}
 
-                      {/* State 2: Processing Progress Overlay ("PROCESSING...") */}
                       {isItemCompressing && (
                         <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-2 text-center">
                           <RefreshCw className="w-6 h-6 text-[#2a73d9] animate-spin mb-1" />
@@ -314,7 +292,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
                         </div>
                       )}
 
-                      {/* State 3: Completed Savings Sign Overlay (-42% Large Text) */}
                       {isDone && savings > 0 && (
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
                           <span className="text-2xl font-black text-white tracking-tight font-mono drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
@@ -323,7 +300,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
                         </div>
                       )}
 
-                      {/* State 4: Optimized Only Sign */}
                       {isOptimized && (
                         <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex flex-col items-center justify-center text-center p-1 pointer-events-none">
                           <CheckCircle2 className="w-5 h-5 text-emerald-400 mb-0.5" />
@@ -334,7 +310,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
                       )}
                     </div>
 
-                    {/* Footer Info inside Card */}
                     <div className="text-[10px] font-mono flex justify-between items-center text-slate-600">
                       <span>{formatBytes(item.originalSize)}</span>
                       {isDone && (
@@ -344,7 +319,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
                       )}
                     </div>
 
-                    {/* Individual Card SAVE Button */}
                     {(isDone || isOptimized) && item.compressedBlob && (
                       <button
                         onClick={(e) => {
@@ -364,13 +338,11 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
           )}
         </div>
 
-        {/* BOTTOM BUTTONS (.files__buttons with counter badges) */}
         <div className="flex items-center justify-center space-x-4">
-          {/* COMPRESS / CONVERT button with counter badge */}
           <button
             onClick={onCompressAll}
             disabled={items.length === 0 || isProcessing}
-            className="relative bg-[#38404B] hover:bg-[#2c323b] disabled:opacity-40 text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-md min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm"
+            className="relative bg-[#38404B] hover:bg-[#2c323b] disabled:opacity-40 text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-[6px] min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm"
           >
             {isProcessing ? (
               <>
@@ -393,11 +365,10 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
             )}
           </button>
 
-          {/* SAVE ALL button with counter badge */}
           <button
             onClick={onDownloadAllZip}
             disabled={completedCount === 0 || isZipping}
-            className="relative bg-[#1a7030] hover:bg-[#135424] disabled:opacity-40 text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-md min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm"
+            className="relative bg-[#1a7030] hover:bg-[#135424] disabled:opacity-40 text-white uppercase text-xs font-semibold h-[2.5em] px-5 rounded-[6px] min-w-[11em] inline-flex items-center justify-center transition-all shadow-sm"
           >
             {isZipping ? (
               <>
