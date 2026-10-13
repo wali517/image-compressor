@@ -3,7 +3,7 @@ import React from 'react';
 export const Header: React.FC = () => {
   return (
     <header className="w-full border-b border-slate-200 bg-white">
-      <div className="max-w-[970px] mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="max-w-242.5 mx-auto px-4 py-3 flex items-center justify-between">
         <a href="/" className="flex items-center space-x-2">
           <div className="w-8 h-8 rounded-lg bg-[#2a73d9] flex items-center justify-center text-white font-bold text-lg shadow-sm">
             IC

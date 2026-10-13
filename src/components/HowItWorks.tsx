@@ -23,7 +23,7 @@ export const HowItWorks: React.FC<{ tab: AppTab }> = ({ tab }) => {
   if (tab !== 'compressor') {
     const content = OTHER_TABS[tab];
     return (
-      <div className="w-full max-w-[970px] mx-auto mt-12 text-[#38404B] font-sans">
+      <div className="w-full max-w-242.5 mx-auto mt-12 text-[#38404B] font-sans">
         <h2 className="text-xl font-bold mb-3">{content.title}</h2>
         {content.paragraphs.map((text) => (
           <p key={text} className="text-sm text-slate-600 leading-relaxed mb-3">
@@ -35,7 +35,7 @@ export const HowItWorks: React.FC<{ tab: AppTab }> = ({ tab }) => {
   }
 
   return (
-    <div className="w-full max-w-[970px] mx-auto mt-12 space-y-8 text-[#38404B] font-sans">
+    <div className="w-full max-w-242.5 mx-auto mt-12 space-y-8 text-[#38404B] font-sans">
       <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#38404B] mb-3">How It Works</h2>
         <p className="text-sm text-slate-600 leading-relaxed">
@@ -43,7 +43,7 @@ export const HowItWorks: React.FC<{ tab: AppTab }> = ({ tab }) => {
         </p>
       </div>
 
-      <div className="bg-gradient-to-r from-[#2a73d9]/10 via-[#2a73d9]/5 to-transparent border border-[#2a73d9]/20 rounded-xl p-6 transition-all hover:border-[#2a73d9]/40">
+      <div className="bg-linear-to-r from-[#2a73d9]/10 via-[#2a73d9]/5 to-transparent border border-[#2a73d9]/20 rounded-xl p-6 transition-all hover:border-[#2a73d9]/40">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-[#38404B] mb-1">

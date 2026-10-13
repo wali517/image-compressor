@@ -204,8 +204,8 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[970px] mx-auto my-6 px-3">
-      <div className="w-full flex items-center justify-between -mb-[1px] relative z-10 font-sans">
+    <div className="w-full max-w-242.5 mx-auto my-6 px-3">
+      <div className="w-full flex items-center justify-between -mb-px relative z-10 font-sans">
         <div className="flex items-center space-x-1">
           {TABS.map((tab) => (
             <button key={tab.id} onClick={() => onTabChange(tab.id)} className={tabClass(activeTab === tab.id)}>
@@ -251,7 +251,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`relative w-full h-[183px] mb-4 overflow-hidden rounded-lg transition-colors ${
+          className={`relative w-full h-45.75 mb-4 overflow-hidden rounded-lg transition-colors ${
             isDragging ? 'bg-[#2a73d9]/5' : ''
           }`}
         >
@@ -288,12 +288,12 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
                   <div
                     key={item.id}
                     onClick={() => onSelectItem(item.id)}
-                    className={`relative w-[163px] h-[163px] flex-shrink-0 bg-white rounded-lg border p-2 flex flex-col justify-between cursor-pointer transition-all overflow-hidden ${
+                    className={`relative w-40.75 h-40.75 shrink-0 bg-white rounded-lg border p-2 flex flex-col justify-between cursor-pointer transition-all overflow-hidden ${
                       isSelected ? 'border-[#38404B] ring-4 ring-[#38404B] shadow-md' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center justify-between z-10 text-[10px] font-sans">
-                      <span className="truncate font-semibold text-slate-800 max-w-[110px]" title={item.name}>
+                      <span className="truncate font-semibold text-slate-800 max-w-27.5" title={item.name}>
                         {item.name}
                       </span>
                       <button
@@ -308,7 +308,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
                       </button>
                     </div>
 
-                    <div className="relative w-full h-[90px] bg-[linear-gradient(45deg,#e0e0e0_25%,transparent_25%),linear-gradient(-45deg,#e0e0e0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e0e0e0_75%),linear-gradient(-45deg,transparent_75%,#e0e0e0_75%)] [background-size:16px_16px] [background-position:0_0,0_8px,8px_-8px,-8px_0px] rounded border border-slate-200 overflow-hidden flex items-center justify-center my-1">
+                    <div className="relative w-full h-22.5 bg-[linear-gradient(45deg,#e0e0e0_25%,transparent_25%),linear-gradient(-45deg,#e0e0e0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e0e0e0_75%),linear-gradient(-45deg,transparent_75%,#e0e0e0_75%)] bg-size-[16px_16px] bg-position-[0_0,0_8px,8px_-8px,-8px_0px] rounded border border-slate-200 overflow-hidden flex items-center justify-center my-1">
                       <img
                         src={activeTab === 'compressor' ? item.compressedUrl || item.originalUrl : item.originalUrl}
                         alt={item.name}
@@ -340,7 +340,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
 
         <div className="flex items-center justify-center flex-wrap gap-4">
           {activeTab === 'converter' && (
-            <div className="inline-flex rounded-[6px] border border-slate-300 overflow-hidden text-xs font-bold h-[2.5em]">
+            <div className="inline-flex rounded-md border border-slate-300 overflow-hidden text-xs font-bold h-[2.5em]">
               {TARGET_FORMATS.map((fmt) => {
                 const isSelected = targetFormat === fmt;
                 const sameAsSource = sourceFormat === fmt;

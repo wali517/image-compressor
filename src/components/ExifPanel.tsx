@@ -30,7 +30,7 @@ export const ExifPanel: React.FC<ExifPanelProps> = ({ item, onRemoveExif, onDown
   else if (tags && visible.length === 0) emptyMessage = `No tags found for "${query.trim()}"`;
 
   return (
-    <section className="w-full max-w-[970px] mx-auto px-3 mb-10">
+    <section className="w-full max-w-242.5 mx-auto px-3 mb-10">
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 font-sans">
         <h2 className="text-center text-base font-bold text-[#1f2933] break-all mb-4">{item.name}</h2>
 

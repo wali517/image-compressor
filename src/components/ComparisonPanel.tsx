@@ -99,7 +99,7 @@ export const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ item, onUpdate
     item.originalSize > 0 ? Math.round(((item.originalSize - size) / item.originalSize) * 100) : 0;
 
   return (
-    <section className="w-full max-w-[970px] mx-auto px-3 mb-10">
+    <section className="w-full max-w-242.5 mx-auto px-3 mb-10">
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm font-sans overflow-hidden">
         <h2 className="text-center text-lg font-bold text-black px-4 py-3 border-b border-slate-100 break-all">
           {item.name}
@@ -128,7 +128,7 @@ export const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ item, onUpdate
         <div className="flex gap-4 px-4 pb-5">
           <div
             ref={viewerRef}
-            className="relative flex-1 min-w-0 h-[420px] rounded-xl border border-slate-200 overflow-hidden select-none touch-none cursor-ew-resize bg-[linear-gradient(45deg,#e8e8e8_25%,transparent_25%),linear-gradient(-45deg,#e8e8e8_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e8e8e8_75%),linear-gradient(-45deg,transparent_75%,#e8e8e8_75%)] [background-size:20px_20px] [background-position:0_0,0_10px,10px_-10px,-10px_0px]"
+            className="relative flex-1 min-w-0 h-105 rounded-xl border border-slate-200 overflow-hidden select-none touch-none cursor-ew-resize bg-[linear-gradient(45deg,#e8e8e8_25%,transparent_25%),linear-gradient(-45deg,#e8e8e8_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e8e8e8_75%),linear-gradient(-45deg,transparent_75%,#e8e8e8_75%)] bg-size-[20px_20px] bg-position-[0_0,0_10px,10px_-10px,-10px_0px]"
             onPointerDown={(e) => {
               draggingRef.current = true;
               e.currentTarget.setPointerCapture(e.pointerId);
@@ -195,7 +195,7 @@ export const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ item, onUpdate
               value={value}
               onChange={(e) => setValue(Number(e.target.value))}
               aria-label={`${usesColors ? 'Colors' : 'Quality'} slider`}
-              className="mt-3 h-[210px] accent-[#38404B] [writing-mode:vertical-lr] [direction:rtl]"
+              className="mt-3 h-52.5 accent-[#38404B] [writing-mode:vertical-lr] [direction:rtl]"
             />
 
             <div className="mt-3 grid grid-cols-2 gap-1 w-full">
