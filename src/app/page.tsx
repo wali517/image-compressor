@@ -106,6 +106,7 @@ export default function App() {
           : await compressImage(item.file, settings);
 
       const isOptimizedOnly = 'isOptimizedOnly' in result ? Boolean(result.isOptimizedOnly) : false;
+      const appliedColors = 'appliedColors' in result ? (result.appliedColors as number | undefined) : undefined;
       const compressedSize = result.blob.size;
       const savings =
         item.originalSize > 0 && !isOptimizedOnly
@@ -128,6 +129,7 @@ export default function App() {
           ...settings,
           format: activeTab === 'converter' ? targetFormat : settings.format,
           quality: result.appliedQuality,
+          maxColors: appliedColors ?? settings.maxColors,
         },
       };
     } catch (err) {
@@ -200,7 +202,7 @@ export default function App() {
         compressedWidth: 0,
         compressedHeight: 0,
         savingsPercentage: 0,
-        settings: { quality: 80, format, maxColors: 256 },
+        settings: { quality: 80, format },
       });
     }
 
@@ -320,9 +322,14 @@ export default function App() {
     if (item.compressedBlob) saveBlob(item.compressedBlob, outputName(item), item.compressedUrl);
   };
 
-  const handleDownloadAllZip = async () => {
+  const handleSaveAll = async () => {
     const ready = items.filter((i) => i.compressedBlob);
     if (ready.length === 0) return;
+
+    if (ready.length === 1) {
+      handleDownloadItem(ready[0]);
+      return;
+    }
 
     setIsZipping(true);
     try {
@@ -364,7 +371,7 @@ export default function App() {
           onRemoveItem={handleRemoveItem}
           onClearAll={handleClearAll}
           onCompressAll={handleProcessAll}
-          onDownloadAllZip={handleDownloadAllZip}
+          onSaveAll={handleSaveAll}
           onDownloadItem={handleDownloadItem}
           targetFormat={targetFormat}
           onTargetFormatChange={setTargetFormat}
@@ -374,24 +381,24 @@ export default function App() {
           isZipping={isZipping}
         />
 
-        {activeTab === 'exif' ? (
+        {activeTab === 'exif' && (
           <ExifPanel
             item={selectedItem}
             onRemoveExif={handleRemoveExif}
             onDownloadItem={handleDownloadItem}
             isBusy={processingId === selectedId}
           />
-        ) : (
+        )}
+
+        {activeTab === 'compressor' && (
           <ComparisonPanel
             item={selectedItem}
-            mode={activeTab}
             onUpdateSettings={handleUpdateSettings}
-            onDownloadItem={handleDownloadItem}
             isProcessing={processingId === selectedId}
           />
         )}
 
-        <HowItWorks />
+        <HowItWorks tab={activeTab} />
       </main>
 
       <Footer />

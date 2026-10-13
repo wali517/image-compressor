@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import type { CompressedFileItem, AppTab, ImageFormat } from '../types/compressor';
-import { acceptAttribute, formatBytes } from '../lib/compressor';
+import { acceptAttribute } from '../lib/compressor';
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2, Settings, X } from 'lucide-react';
 
 interface MainCardContainerProps {
@@ -13,7 +13,7 @@ interface MainCardContainerProps {
   onRemoveItem: (id: string) => void;
   onClearAll: () => void;
   onCompressAll: () => void;
-  onDownloadAllZip: () => void;
+  onSaveAll: () => void;
   onDownloadItem: (item: CompressedFileItem) => void;
   targetFormat: ImageFormat;
   onTargetFormatChange: (format: ImageFormat) => void;
@@ -65,7 +65,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
   onRemoveItem,
   onClearAll,
   onCompressAll,
-  onDownloadAllZip,
+  onSaveAll,
   onDownloadItem,
   targetFormat,
   onTargetFormatChange,
@@ -117,6 +117,9 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
   const sourceFormat = items.length > 0 ? items[0].format : null;
   const allConverted = activeTab === 'converter' && items.length > 0 && pendingCount === 0;
 
+  const isStale = (item: CompressedFileItem) =>
+    activeTab === 'converter' && item.status === 'completed' && item.settings.format !== targetFormat;
+
   const renderOverlay = (item: CompressedFileItem) => {
     if (item.status === 'converting') {
       return (
@@ -162,7 +165,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
       );
     }
 
-    if (item.status === 'pending') {
+    if (item.status === 'pending' || isStale(item)) {
       return (
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
           <span className="text-2xl font-black text-white uppercase tracking-wider font-mono drop-shadow">
@@ -278,7 +281,8 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
             <div ref={scrollRef} className="w-full h-full flex items-center space-x-3 overflow-x-auto px-12 py-2 scrollbar-none">
               {items.map((item) => {
                 const isSelected = item.id === selectedId;
-                const canSave = (item.status === 'completed' || item.status === 'optimized') && item.compressedBlob;
+                const canSave =
+                  (item.status === 'completed' || item.status === 'optimized') && item.compressedBlob && !isStale(item);
 
                 return (
                   <div
@@ -306,18 +310,11 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
 
                     <div className="relative w-full h-[90px] bg-[linear-gradient(45deg,#e0e0e0_25%,transparent_25%),linear-gradient(-45deg,#e0e0e0_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e0e0e0_75%),linear-gradient(-45deg,transparent_75%,#e0e0e0_75%)] [background-size:16px_16px] [background-position:0_0,0_8px,8px_-8px,-8px_0px] rounded border border-slate-200 overflow-hidden flex items-center justify-center my-1">
                       <img
-                        src={item.compressedUrl || item.originalUrl}
+                        src={activeTab === 'compressor' ? item.compressedUrl || item.originalUrl : item.originalUrl}
                         alt={item.name}
                         className="max-h-full max-w-full object-contain"
                       />
                       {renderOverlay(item)}
-                    </div>
-
-                    <div className="text-[10px] font-mono flex justify-between items-center text-slate-600">
-                      <span>{formatBytes(item.originalSize)}</span>
-                      {item.status === 'completed' && item.compressedSize > 0 && (
-                        <span className="font-bold text-[#1a7030]">{formatBytes(item.compressedSize)}</span>
-                      )}
                     </div>
 
                     {canSave && (
@@ -374,7 +371,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
 
           {activeTab === 'converter' ? (
             <button
-              onClick={allConverted ? onDownloadAllZip : onCompressAll}
+              onClick={allConverted ? onSaveAll : onCompressAll}
               disabled={items.length === 0 || isProcessing || isZipping}
               className={`${bigButton} ${
                 allConverted ? 'bg-[#1a7030] hover:bg-[#135424]' : 'bg-[#38404B] hover:bg-[#2c323b]'
@@ -415,7 +412,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
               </button>
 
               <button
-                onClick={onDownloadAllZip}
+                onClick={onSaveAll}
                 disabled={doneCount === 0 || isZipping}
                 className={`${bigButton} bg-[#1a7030] hover:bg-[#135424] disabled:opacity-40`}
               >

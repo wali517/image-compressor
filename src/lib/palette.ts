@@ -6,27 +6,34 @@ export interface PaletteResult {
   blob: Blob;
   width: number;
   height: number;
+  colors: number;
 }
 
 const clampColors = (value: number) => Math.min(256, Math.max(2, Math.round(value)));
 
-export async function compressPng(file: Blob, maxColors: number): Promise<PaletteResult> {
+export function countColors(rgba: Uint8Array, limit = 256): number {
+  const seen = new Set<number>();
+  for (let i = 0; i < rgba.length; i += 4) {
+    const alpha = rgba[i + 3];
+    const key = alpha === 0 ? 0 : ((rgba[i] << 16) | (rgba[i + 1] << 8) | rgba[i + 2]) * 256 + alpha;
+    seen.add(key);
+    if (seen.size > limit) break;
+  }
+  return seen.size;
+}
+
+export async function compressPng(file: Blob, maxColors?: number): Promise<PaletteResult> {
   const decoded = UPNG.decode(await file.arrayBuffer());
   const frames = UPNG.toRGBA8(decoded);
   const delays = decoded.frames.map((f) => f.delay);
+  const colors = clampColors(maxColors ?? countColors(new Uint8Array(frames[0])));
 
-  const encoded = UPNG.encode(
-    frames,
-    decoded.width,
-    decoded.height,
-    clampColors(maxColors),
-    frames.length > 1 ? delays : undefined
-  );
+  const encoded = UPNG.encode(frames, decoded.width, decoded.height, colors, frames.length > 1 ? delays : undefined);
 
-  return { blob: new Blob([encoded], { type: 'image/png' }), width: decoded.width, height: decoded.height };
+  return { blob: new Blob([encoded], { type: 'image/png' }), width: decoded.width, height: decoded.height, colors };
 }
 
-export async function compressGif(file: Blob, maxColors: number): Promise<PaletteResult> {
+export async function compressGif(file: Blob, maxColors = 256): Promise<PaletteResult> {
   const colors = clampColors(maxColors);
   const gif = parseGIF(await file.arrayBuffer());
   const frames = decompressFrames(gif, true);
@@ -86,7 +93,7 @@ export async function compressGif(file: Blob, maxColors: number): Promise<Palett
   }
 
   encoder.finish();
-  return { blob: new Blob([encoder.bytes() as BlobPart], { type: 'image/gif' }), width, height };
+  return { blob: new Blob([encoder.bytes() as BlobPart], { type: 'image/gif' }), width, height, colors };
 }
 
 function buildPalette(data: Uint8ClampedArray, colors: number) {

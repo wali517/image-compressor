@@ -155,16 +155,27 @@ export async function convertImage(
 export async function compressImage(
   file: File,
   settings: CompressionSettings
-): Promise<{ blob: Blob; width: number; height: number; appliedQuality: number; isOptimizedOnly?: boolean }> {
+): Promise<{
+  blob: Blob;
+  width: number;
+  height: number;
+  appliedQuality: number;
+  appliedColors?: number;
+  isOptimizedOnly?: boolean;
+}> {
   const format = detectImageFormat(file);
-  const maxColors = settings.maxColors ?? 256;
   let appliedQuality = settings.quality;
+  let appliedColors: number | undefined;
   let result: { blob: Blob; width: number; height: number };
 
   if (format === 'png') {
-    result = await compressPng(file, maxColors);
+    const png = await compressPng(file, settings.maxColors);
+    appliedColors = png.colors;
+    result = png;
   } else if (format === 'gif') {
-    result = await compressGif(file, maxColors);
+    const gif = await compressGif(file, settings.maxColors);
+    appliedColors = gif.colors;
+    result = gif;
   } else if (format === 'jpeg' || format === 'webp') {
     result = await canvasEncode(file, format, appliedQuality);
     while (result.blob.size >= file.size && appliedQuality > 15) {
@@ -177,7 +188,7 @@ export async function compressImage(
   }
 
   if (result.blob.size >= file.size) {
-    return { blob: file, width: result.width, height: result.height, appliedQuality, isOptimizedOnly: true };
+    return { blob: file, width: result.width, height: result.height, appliedQuality, appliedColors, isOptimizedOnly: true };
   }
-  return { ...result, appliedQuality, isOptimizedOnly: false };
+  return { ...result, appliedQuality, appliedColors, isOptimizedOnly: false };
 }

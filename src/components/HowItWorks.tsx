@@ -1,7 +1,39 @@
 import React from 'react';
+import type { AppTab } from '../types/compressor';
 import { ArrowRight, BookOpen } from 'lucide-react';
 
-export const HowItWorks: React.FC = () => {
+const OTHER_TABS: Record<Exclude<AppTab, 'compressor'>, { title: string; paragraphs: string[] }> = {
+  converter: {
+    title: 'What is image format conversion?',
+    paragraphs: [
+      'Converting an image means saving the same picture in a different file format. Formats differ in how they compress pixels, whether they keep transparency, and how widely they are supported, so the right choice depends on where the image will be used.',
+      'JPG suits photos and works everywhere. PNG keeps sharp edges and transparency without quality loss. WebP and AVIF usually give smaller files for the web, though AVIF support for creating files depends on your browser. Everything happens on your device, and your files are never uploaded.',
+    ],
+  },
+  exif: {
+    title: 'EXIF Viewer: a guide to image metadata',
+    paragraphs: [
+      'Photos often carry hidden information: the camera or phone model, the date and time, software used for editing, and sometimes the exact GPS location where the picture was taken. Anyone you share the original file with can read it.',
+      'This tool lists every tag it can find so you can check what is inside, then removes the metadata without re-encoding the picture, so the image itself stays identical. Orientation is kept for JPEG files so photos still display upright.',
+    ],
+  },
+};
+
+export const HowItWorks: React.FC<{ tab: AppTab }> = ({ tab }) => {
+  if (tab !== 'compressor') {
+    const content = OTHER_TABS[tab];
+    return (
+      <div className="w-full max-w-[970px] mx-auto mt-12 text-[#38404B] font-sans">
+        <h2 className="text-xl font-bold mb-3">{content.title}</h2>
+        {content.paragraphs.map((text) => (
+          <p key={text} className="text-sm text-slate-600 leading-relaxed mb-3">
+            {text}
+          </p>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-[970px] mx-auto mt-12 space-y-8 text-[#38404B] font-sans">
       <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
@@ -32,7 +64,7 @@ export const HowItWorks: React.FC = () => {
         <div>
           <h2 className="text-base font-bold text-[#38404B] mb-2">JPEG Compression</h2>
           <p className="text-xs text-slate-600 leading-relaxed">
-            For JPEG files, the tool detects the original quality level from the file's quantization tables. The default target quality is 80, which provides an excellent balance between file size and visual quality for most images. You can use the slider to adjust this – higher values preserve more detail but result in larger files, while lower values create smaller files with more visible compression artifacts. For even smaller files, consider converting to WebP or AVIF.
+            For JPEG files, the tool re-encodes the image at the quality you choose. The default target quality is 80, which provides an excellent balance between file size and visual quality for most images. You can use the slider to adjust this – higher values preserve more detail but result in larger files, while lower values create smaller files with more visible compression artifacts. For even smaller files, consider converting to WebP or AVIF.
           </p>
         </div>
 
@@ -63,7 +95,7 @@ export const HowItWorks: React.FC = () => {
         <div className="pt-4 border-t border-slate-100">
           <h2 className="text-base font-bold text-[#38404B] mb-2">Privacy & Security</h2>
           <p className="text-xs text-slate-600 leading-relaxed">
-            All image processing happens entirely in your browser using WebAssembly technology. There are no uploads to any server, no data collection, and no privacy concerns. All metadata (EXIF, GPS, camera info) is automatically removed from compressed images.
+            All image processing happens entirely in your browser using JavaScript and your browser's own image tools. There are no uploads to any server, no data collection, and no privacy concerns. Metadata (EXIF, GPS, camera info) is removed from images that get compressed. If a file cannot be made any smaller, your original is returned unchanged.
           </p>
         </div>
 
