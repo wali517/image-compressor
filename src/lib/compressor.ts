@@ -1,6 +1,5 @@
 import type { AppTab, CompressionSettings, ImageFormat } from '../types/compressor';
 import { compressGif, compressPng } from './palette';
-import UPNG from 'upng-js';
 
 export const MAX_FILES = 20;
 
@@ -164,56 +163,6 @@ export async function convertImage(
   quality: number = 80
 ): Promise<{ blob: Blob; width: number; height: number; appliedQuality: number }> {
   const img = await loadImage(file);
-  const width = img.naturalWidth || 800;
-  const height = img.naturalHeight || 600;
-
-  if (targetFormat === 'png') {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      throw new Error('Failed to get canvas context');
-    }
-
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, 0, 0, width, height);
-
-    // When converting JPEG to PNG, standard canvas PNG can balloon heavily.
-    // Ensure size does not increase by more than 25 KB above the original file.
-    const maxAllowedBytes = file.size > 0 ? file.size + 25 * 1024 : Infinity;
-
-    // Check standard canvas PNG first (in case it is already within limits)
-    const canvasBlob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob((b) => resolve(b), 'image/png')
-    );
-
-    if (canvasBlob && canvasBlob.size <= maxAllowedBytes) {
-      return { blob: canvasBlob, width, height, appliedQuality: quality };
-    }
-
-    // Standard canvas PNG is too large; compress using UPNG palette quantization
-    // while keeping 100% of the original width, height, shape, and pixel resolution!
-    const imgData = ctx.getImageData(0, 0, width, height);
-    const frames = [imgData.data.buffer];
-
-    let colors = 256;
-    let encoded = UPNG.encode(frames, width, height, colors);
-
-    while (encoded.byteLength > maxAllowedBytes && colors > 32) {
-      colors = Math.max(32, Math.floor(colors * 0.75));
-      const nextEncoded = UPNG.encode(frames, width, height, colors);
-      if (nextEncoded.byteLength < encoded.byteLength) {
-        encoded = nextEncoded;
-      }
-    }
-
-    const pngBlob = new Blob([encoded], { type: 'image/png' });
-    return { blob: pngBlob, width, height, appliedQuality: quality };
-  }
-
   const result = await renderToBlob(img, targetFormat, quality);
   return { ...result, appliedQuality: quality };
 }
