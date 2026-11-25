@@ -170,6 +170,22 @@ export async function convertImage(
 }> {
   const img = await loadImage(file);
   const result = await renderToBlob(img, targetFormat, quality);
+
+  // If the converted image cannot be smaller than the original file,
+  // keep the original file and its original size stable (do not inflate the size).
+  if (result.blob.size >= file.size) {
+    const originalBlob = new Blob([await file.arrayBuffer()], {
+      type: MIME_BY_FORMAT[targetFormat] || file.type,
+    });
+    return {
+      blob: originalBlob,
+      width: result.width,
+      height: result.height,
+      appliedQuality: quality,
+      isOptimizedOnly: true,
+    };
+  }
+
   return { ...result, appliedQuality: quality, isOptimizedOnly: false };
 }
 
