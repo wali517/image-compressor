@@ -218,26 +218,48 @@ export async function convertImage(
       // Keep bestBlob
     }
 
-    // 3. If PNG is larger than source file and quality < 100, optimize palette to avoid size inflation
-    if (file.size > 0 && bestBlob.size > file.size && quality < 100) {
-      try {
-        const pal = quantize(rawData, 256, { format: quantFormat });
-        const idx = applyPalette(rawData, pal, quantFormat);
-        const rec = new Uint8Array(width * height * 4);
-        for (let i = 0; i < width * height; i++) {
-          const c = pal[idx[i]];
-          rec[i * 4] = c[0];
-          rec[i * 4 + 1] = c[1];
-          rec[i * 4 + 2] = c[2];
-          rec[i * 4 + 3] = hasAlpha ? c[3] : 255;
+    // 3. If PNG is larger than source file, attempt compression across color steps
+    // to achieve size reduction without increasing above original file size
+    if (file.size > 0 && bestBlob.size >= file.size) {
+      const colorSteps = [256, 192, 128, 96, 64, 48, 32, 16];
+      for (const numColors of colorSteps) {
+        try {
+          const pal = quantize(rawData, numColors, { format: quantFormat });
+          const idx = applyPalette(rawData, pal, quantFormat);
+          const rec = new Uint8Array(width * height * 4);
+          for (let i = 0; i < width * height; i++) {
+            const c = pal[idx[i]];
+            rec[i * 4] = c[0];
+            rec[i * 4 + 1] = c[1];
+            rec[i * 4 + 2] = c[2];
+            rec[i * 4 + 3] = hasAlpha ? c[3] : 255;
+          }
+          const quantizedBuf = new Uint8Array(UPNG.encode([rec.buffer], width, height, 0));
+          if (quantizedBuf.byteLength < bestBlob.size) {
+            bestBlob = new Blob([quantizedBuf.buffer as ArrayBuffer], { type: 'image/png' });
+          }
+          if (bestBlob.size < file.size) {
+            break; // Successfully compressed below original size
+          }
+        } catch {
+          // Keep bestBlob
         }
-        const quantizedBuf = new Uint8Array(UPNG.encode([rec.buffer], width, height, 0));
-        if (quantizedBuf.byteLength < bestBlob.size) {
-          bestBlob = new Blob([quantizedBuf.buffer as ArrayBuffer], { type: 'image/png' });
-        }
-      } catch {
-        // Keep bestBlob
       }
+    }
+
+    // 4. If it could not be compressed during converting (bestBlob.size >= file.size):
+    // Do NOT increase size! Keep the exact original size and file stable.
+    if (file.size > 0 && bestBlob.size >= file.size) {
+      const originalBlob = new Blob([await file.arrayBuffer()], {
+        type: MIME_BY_FORMAT[targetFormat] || file.type,
+      });
+      return {
+        blob: originalBlob,
+        width,
+        height,
+        appliedQuality: quality,
+        isOptimizedOnly: true,
+      };
     }
 
     return {
@@ -251,6 +273,19 @@ export async function convertImage(
 
   // Other formats: jpeg, webp, avif
   const result = await renderToBlob(img, targetFormat, quality);
+  if (file.size > 0 && result.blob.size >= file.size) {
+    const originalBlob = new Blob([await file.arrayBuffer()], {
+      type: MIME_BY_FORMAT[targetFormat] || file.type,
+    });
+    return {
+      blob: originalBlob,
+      width: result.width,
+      height: result.height,
+      appliedQuality: quality,
+      isOptimizedOnly: true,
+    };
+  }
+
   return { ...result, appliedQuality: quality, isOptimizedOnly: false };
 }
 
