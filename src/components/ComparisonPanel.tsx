@@ -105,7 +105,7 @@ export const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ item, onUpdate
           {item.name}
         </h2>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-1 py-3 text-sm text-slate-800">
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-1 py-3 text-sm text-slate-800">
           <span>
             Before: <strong className="text-black">{formatBytes(item.originalSize)}</strong>
           </span>
@@ -115,6 +115,9 @@ export const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ item, onUpdate
               {formatBytes(item.compressedSize)}
               {item.status === 'optimized' ? ' (already optimal)' : ` (-${Math.max(0, percent(item.compressedSize))}%)`}
             </strong>
+          </span>
+          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+            Target: &le; 25 KB
           </span>
           {dirty && (
             <span className="text-[#2a73d9] font-semibold">

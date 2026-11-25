@@ -64,7 +64,7 @@ export const HowItWorks: React.FC<{ tab: AppTab }> = ({ tab }) => {
         <div>
           <h2 className="text-base font-bold text-[#38404B] mb-2">JPEG Compression</h2>
           <p className="text-xs text-slate-600 leading-relaxed">
-            For JPEG files, the tool re-encodes the image at the quality you choose. The default target quality is 80, which provides an excellent balance between file size and visual quality for most images. You can use the slider to adjust this – higher values preserve more detail but result in larger files, while lower values create smaller files with more visible compression artifacts. For even smaller files, consider converting to WebP or AVIF.
+            For JPEG files, the tool re-encodes the image at the quality you choose while guaranteeing that the file size never exceeds 25 KB. If needed, the image is adaptively scaled to fit within 25 KB while preserving optimal clarity. You can use the slider to adjust quality and fine-tune your results.
           </p>
         </div>
 
