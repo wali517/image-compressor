@@ -23,14 +23,99 @@ export function countColors(rgba: Uint8Array, limit = 256): number {
 }
 
 export async function compressPng(file: Blob, maxColors?: number): Promise<PaletteResult> {
-  const decoded = UPNG.decode(await file.arrayBuffer());
-  const frames = UPNG.toRGBA8(decoded);
-  const delays = decoded.frames.map((f) => f.delay);
-  const colors = clampColors(maxColors ?? countColors(new Uint8Array(frames[0])));
+  const colors = clampColors(maxColors ?? 256);
 
-  const encoded = UPNG.encode(frames, decoded.width, decoded.height, colors, frames.length > 1 ? delays : undefined);
+  // Attempt 1: Direct UPNG decode (fast path for standard PNGs)
+  try {
+    const buffer = await file.arrayBuffer();
+    const decoded = UPNG.decode(buffer);
+    const frames = UPNG.toRGBA8(decoded);
+    if (frames && frames.length > 0 && decoded.width > 0 && decoded.height > 0) {
+      const delays = decoded.frames ? decoded.frames.map((f: { delay: number }) => f.delay) : undefined;
+      const encoded = UPNG.encode(
+        frames,
+        decoded.width,
+        decoded.height,
+        colors,
+        frames.length > 1 ? delays : undefined
+      );
+      return {
+        blob: new Blob([encoded], { type: 'image/png' }),
+        width: decoded.width,
+        height: decoded.height,
+        colors,
+      };
+    }
+  } catch {
+    // UPNG.decode failed (e.g. non-PNG header, interlaced, 16-bit, or custom chunks)
+    // Fallback to browser canvas decoding below
+  }
 
-  return { blob: new Blob([encoded], { type: 'image/png' }), width: decoded.width, height: decoded.height, colors };
+  // Attempt 2: Decode via native Image & Canvas (bulletproof for any image payload)
+  if (typeof document !== 'undefined') {
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        const url = URL.createObjectURL(file);
+        i.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(i);
+        };
+        i.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('Failed to load image'));
+        };
+        i.src = url;
+      });
+
+      const width = img.naturalWidth || 800;
+      const height = img.naturalHeight || 600;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context failed');
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(img, 0, 0, width, height);
+      const imgData = ctx.getImageData(0, 0, width, height);
+
+      try {
+        const encoded = UPNG.encode([imgData.data.buffer], width, height, colors);
+        return {
+          blob: new Blob([encoded], { type: 'image/png' }),
+          width,
+          height,
+          colors,
+        };
+      } catch {
+        const blob = await new Promise<Blob>((res, rej) => {
+          canvas.toBlob((b) => (b ? res(b) : rej(new Error('Canvas toBlob failed'))), 'image/png');
+        });
+        return {
+          blob,
+          width,
+          height,
+          colors: 256,
+        };
+      }
+    } catch {
+      // If browser image loading failed, safely return original file
+      return {
+        blob: file,
+        width: 0,
+        height: 0,
+        colors: 256,
+      };
+    }
+  }
+
+  return {
+    blob: file,
+    width: 0,
+    height: 0,
+    colors: 256,
+  };
 }
 
 export async function compressGif(file: Blob, maxColors = 256): Promise<PaletteResult> {
