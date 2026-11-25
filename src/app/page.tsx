@@ -117,7 +117,7 @@ export default function App() {
 
       return {
         ...item,
-        status: isOptimizedOnly ? 'optimized' : 'completed',
+        status: activeTab === 'converter' ? 'completed' : isOptimizedOnly ? 'optimized' : 'completed',
         compressedBlob: result.blob,
         compressedUrl: URL.createObjectURL(result.blob),
         compressedSize,

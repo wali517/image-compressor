@@ -161,10 +161,32 @@ export async function convertImage(
   file: File,
   targetFormat: ImageFormat,
   quality: number = 80
-): Promise<{ blob: Blob; width: number; height: number; appliedQuality: number }> {
+): Promise<{
+  blob: Blob;
+  width: number;
+  height: number;
+  appliedQuality: number;
+  isOptimizedOnly?: boolean;
+}> {
   const img = await loadImage(file);
   const result = await renderToBlob(img, targetFormat, quality);
-  return { ...result, appliedQuality: quality };
+
+  // If the converted image cannot be smaller than the original file,
+  // keep the original file and its original size stable (do not inflate the size).
+  if (result.blob.size >= file.size) {
+    const originalBlob = new Blob([await file.arrayBuffer()], {
+      type: MIME_BY_FORMAT[targetFormat] || file.type,
+    });
+    return {
+      blob: originalBlob,
+      width: result.width,
+      height: result.height,
+      appliedQuality: quality,
+      isOptimizedOnly: true,
+    };
+  }
+
+  return { ...result, appliedQuality: quality, isOptimizedOnly: false };
 }
 
 export async function compressImage(
