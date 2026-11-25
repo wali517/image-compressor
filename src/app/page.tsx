@@ -8,7 +8,7 @@ import {
   canEncode,
   compressImage,
   convertImage,
-  detectImageFormat,
+  detectFileFormatAccurate,
   getImageDimensions,
   isAcceptedFile,
 } from '../lib/compressor';
@@ -23,18 +23,18 @@ import { Footer } from '../components/Footer';
 const COPY: Record<AppTab, { title: string; text: string; steps: [string, string] }> = {
   compressor: {
     title: 'Compress Images Online',
-    text: 'Shrink JPEG, PNG, WebP, GIF and AVIF files right in your browser. Nothing is uploaded, and metadata is removed from the results.',
-    steps: ['Drop JPEG, PNG, WebP, GIF or AVIF images (up to 20).', 'Click COMPRESS, then save or fine-tune quality.'],
+    text: 'Compress and optimize your JPEG, PNG, WebP, GIF and SVG images. This free online tool uses advanced compression algorithms to reduce file sizes while maintaining quality. All processing happens in your browser – your files never leave your device.',
+    steps: ['Drop JPEG, PNG, WebP, GIF or SVG images.', 'Click COMPRESS, then save or adjust quality.'],
   },
   converter: {
     title: 'Convert Images Online',
-    text: 'Turn JPEG, PNG, WebP, GIF and AVIF images into JPG, PNG, WebP or AVIF without leaving the page.',
-    steps: ['Drop or select up to 20 images.', 'Pick an output format, click CONVERT, then save each file.'],
+    text: 'Free browser-based tool that converts HEIC, JPG, PNG, WebP, GIF, BMP, TIFF, AVIF and ICO images to JPG, PNG, WebP or AVIF. No server upload – conversion happens in your browser.',
+    steps: ['Drop or select images – up to 20 files at once.', 'Choose output format, click CONVERT, then save each file.'],
   },
   exif: {
     title: 'View, Search and Remove File Metadata',
-    text: 'See the hidden data inside your photos, such as camera, location and dates, and strip it before you share.',
-    steps: ['Drop up to 20 images and click one to see every tag.', 'Search the tags, then REMOVE EXIF or BULK REMOVE and save the clean copies.'],
+    text: 'This browser-based EXIF viewer allows you to inspect, search and remove metadata from your files. It processes JPEG, PNG, WEBP, HEIC, MP4, MOV and PDF formats safely and efficiently. Your files never leave your device.',
+    steps: ['Drop up to 20 images and click one to see every tag.', 'Search tags, then click Remove EXIF or Bulk Remove to save clean copies.'],
   },
 };
 
@@ -102,14 +102,25 @@ export default function App() {
     try {
       const result =
         activeTab === 'converter'
-          ? await convertImage(item.file, targetFormat, settings.quality)
+          ? await convertImage(item.file, targetFormat, settings.quality, settings.maxColors)
           : await compressImage(item.file, settings);
 
-      const isOptimizedOnly = 'isOptimizedOnly' in result ? Boolean(result.isOptimizedOnly) : false;
-      const appliedColors = 'appliedColors' in result ? (result.appliedColors as number | undefined) : undefined;
+      // Strict validation of dimensions
+      if (
+        item.originalWidth > 0 &&
+        item.originalHeight > 0 &&
+        (result.width !== item.originalWidth || result.height !== item.originalHeight)
+      ) {
+        throw new Error(
+          `Dimension mismatch: expected ${item.originalWidth}x${item.originalHeight}, got ${result.width}x${result.height}`
+        );
+      }
+
+      const isOptimizedOnly = Boolean(result.isOptimizedOnly);
+      const appliedColors = result.appliedColors;
       const compressedSize = result.blob.size;
       const savings =
-        item.originalSize > 0 && !isOptimizedOnly
+        item.originalSize > 0 && !isOptimizedOnly && compressedSize < item.originalSize
           ? Math.max(0, Math.round(((item.originalSize - compressedSize) / item.originalSize) * 100))
           : 0;
 
@@ -125,6 +136,7 @@ export default function App() {
         compressedHeight: result.height,
         savingsPercentage: savings,
         error: undefined,
+        notice: result.message,
         settings: {
           ...settings,
           format: activeTab === 'converter' ? targetFormat : settings.format,
@@ -181,7 +193,7 @@ export default function App() {
 
     const newItems: CompressedFileItem[] = [];
     for (const file of batch) {
-      const format = detectImageFormat(file);
+      const format = await detectFileFormatAccurate(file);
       const dimensions = await getImageDimensions(file);
       newItems.push({
         id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -209,7 +221,7 @@ export default function App() {
     }
 
     setItems((prev) => [...prev, ...newItems]);
-    if (!selectedId) setSelectedId(newItems[0].id);
+    if (!selectedId && newItems.length > 0) setSelectedId(newItems[0].id);
 
     if (activeTab === 'exif') {
       newItems.forEach((item) => {
@@ -229,7 +241,10 @@ export default function App() {
   };
 
   const handleProcessAll = async () => {
-    const todo = items.filter(needsWork);
+    let todo = items.filter(needsWork);
+    if (todo.length === 0 && items.length > 0 && activeTab === 'compressor') {
+      todo = items;
+    }
     if (todo.length === 0) return;
     const session = sessionRef.current;
     setIsProcessing(true);
@@ -387,9 +402,10 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'compressor' && (
+        {activeTab === 'compressor' && selectedItem && Boolean(selectedItem.compressedBlob) && (
           <ComparisonPanel
             item={selectedItem}
+            activeTab={activeTab}
             onUpdateSettings={handleUpdateSettings}
             isProcessing={processingId === selectedId}
           />

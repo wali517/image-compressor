@@ -1,4 +1,4 @@
-import exifr from 'exifr';
+import exifr from 'exifr/dist/lite.esm.mjs';
 import type { ExifTag, ImageFormat } from '../types/compressor';
 
 const MAX_VALUE_LENGTH = 200;

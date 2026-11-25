@@ -26,7 +26,7 @@ export const Footer: React.FC = () => {
 
   return (
     <footer className="w-full bg-white border-t border-slate-200 mt-16 font-sans text-xs text-slate-600">
-      <div className="max-w-242.5 mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="max-w-[970px] mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-slate-600">
           &copy; imagecompressor.com <span className="mx-2 text-slate-300">|</span>{' '}
           <a href="#" className="text-[#2a73d9] hover:underline">
@@ -37,7 +37,7 @@ export const Footer: React.FC = () => {
         <div className="relative">
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center space-x-2 border border-[#2a73d9] text-[#2a73d9] hover:bg-[#2a73d9] hover:text-white px-3 py-1.5 rounded-md font-semibold transition-colors shadow-sm"
+            className="flex items-center space-x-2 border border-[#2a73d9] text-[#2a73d9] hover:bg-[#2a73d9] hover:text-white px-3 py-1.5 rounded-md font-semibold transition-colors shadow-sm cursor-pointer"
           >
             <Globe className="w-3.5 h-3.5" />
             <span>{currentLang}</span>

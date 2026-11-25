@@ -1,4 +1,4 @@
-export type ImageFormat = 'jpeg' | 'png' | 'webp' | 'gif' | 'avif';
+export type ImageFormat = 'jpeg' | 'png' | 'webp' | 'gif' | 'avif' | 'svg';
 export type AppTab = 'converter' | 'compressor' | 'exif';
 
 export interface CompressionSettings {
@@ -32,4 +32,5 @@ export interface CompressedFileItem {
   exifTags?: ExifTag[];
   exifOriginalCount?: number;
   error?: string;
+  notice?: string;
 }
