@@ -22,29 +22,26 @@ export function countColors(rgba: Uint8Array, limit = 256): number {
   return seen.size;
 }
 
-export async function compressPng(file: Blob, maxColors?: number): Promise<PaletteResult> {
-  const colors = clampColors(maxColors ?? 256);
+export async function compressPng(
+  file: Blob,
+  maxColors?: number,
+  quality: number = 80
+): Promise<PaletteResult> {
+  let frames: ArrayBuffer[] | null = null;
+  let width = 0;
+  let height = 0;
+  let delays: number[] | undefined;
 
   // Attempt 1: Direct UPNG decode (fast path for standard PNGs)
   try {
     const buffer = await file.arrayBuffer();
     const decoded = UPNG.decode(buffer);
-    const frames = UPNG.toRGBA8(decoded);
-    if (frames && frames.length > 0 && decoded.width > 0 && decoded.height > 0) {
-      const delays = decoded.frames ? decoded.frames.map((f: { delay: number }) => f.delay) : undefined;
-      const encoded = UPNG.encode(
-        frames,
-        decoded.width,
-        decoded.height,
-        colors,
-        frames.length > 1 ? delays : undefined
-      );
-      return {
-        blob: new Blob([encoded], { type: 'image/png' }),
-        width: decoded.width,
-        height: decoded.height,
-        colors,
-      };
+    const rgbaFrames = UPNG.toRGBA8(decoded);
+    if (rgbaFrames && rgbaFrames.length > 0 && decoded.width > 0 && decoded.height > 0) {
+      frames = rgbaFrames;
+      width = decoded.width;
+      height = decoded.height;
+      delays = decoded.frames ? decoded.frames.map((f: { delay: number }) => f.delay) : undefined;
     }
   } catch {
     // UPNG.decode failed (e.g. non-PNG header, interlaced, 16-bit, or custom chunks)
@@ -52,7 +49,7 @@ export async function compressPng(file: Blob, maxColors?: number): Promise<Palet
   }
 
   // Attempt 2: Decode via native Image & Canvas (bulletproof for any image payload)
-  if (typeof document !== 'undefined') {
+  if ((!frames || frames.length === 0) && typeof document !== 'undefined') {
     try {
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const i = new Image();
@@ -68,8 +65,8 @@ export async function compressPng(file: Blob, maxColors?: number): Promise<Palet
         i.src = url;
       });
 
-      const width = img.naturalWidth || 800;
-      const height = img.naturalHeight || 600;
+      width = img.naturalWidth || 800;
+      height = img.naturalHeight || 600;
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -79,28 +76,8 @@ export async function compressPng(file: Blob, maxColors?: number): Promise<Palet
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(img, 0, 0, width, height);
       const imgData = ctx.getImageData(0, 0, width, height);
-
-      try {
-        const encoded = UPNG.encode([imgData.data.buffer], width, height, colors);
-        return {
-          blob: new Blob([encoded], { type: 'image/png' }),
-          width,
-          height,
-          colors,
-        };
-      } catch {
-        const blob = await new Promise<Blob>((res, rej) => {
-          canvas.toBlob((b) => (b ? res(b) : rej(new Error('Canvas toBlob failed'))), 'image/png');
-        });
-        return {
-          blob,
-          width,
-          height,
-          colors: 256,
-        };
-      }
+      frames = [imgData.data.buffer];
     } catch {
-      // If browser image loading failed, safely return original file
       return {
         blob: file,
         width: 0,
@@ -110,11 +87,134 @@ export async function compressPng(file: Blob, maxColors?: number): Promise<Palet
     }
   }
 
+  if (!frames || frames.length === 0 || width === 0 || height === 0) {
+    return {
+      blob: file,
+      width: 0,
+      height: 0,
+      colors: 256,
+    };
+  }
+
+  const rawData = new Uint8Array(frames[0]);
+  let hasAlpha = false;
+  for (let i = 0; i < rawData.length; i += 4) {
+    if (rawData[i + 3] < 255) {
+      hasAlpha = true;
+      break;
+    }
+  }
+  const quantFormat = hasAlpha ? 'rgba4444' : 'rgb565';
+
+  const encodeQuantized = (numColors: number): Uint8Array => {
+    try {
+      const pal = quantize(rawData, numColors, { format: quantFormat });
+      const idx = applyPalette(rawData, pal, quantFormat);
+      const rec = new Uint8Array(width * height * 4);
+      for (let i = 0; i < width * height; i++) {
+        const c = pal[idx[i]];
+        rec[i * 4] = c[0];
+        rec[i * 4 + 1] = c[1];
+        rec[i * 4 + 2] = c[2];
+        rec[i * 4 + 3] = hasAlpha ? c[3] : 255;
+      }
+      return new Uint8Array(UPNG.encode([rec.buffer], width, height, 0, delays));
+    } catch {
+      return new Uint8Array(UPNG.encode(frames!, width, height, numColors, delays));
+    }
+  };
+
+  let losslessBuf: Uint8Array | null = null;
+  try {
+    losslessBuf = new Uint8Array(UPNG.encode(frames, width, height, 0, delays));
+  } catch {
+    // Lossless encode failed
+  }
+
+  let bestEncoded: Uint8Array | null = null;
+  let bestColors = 256;
+
+  if (maxColors != null) {
+    const userColors = clampColors(maxColors);
+    bestEncoded = encodeQuantized(userColors);
+    bestColors = userColors;
+
+    if (bestEncoded.byteLength >= file.size) {
+      if (losslessBuf && losslessBuf.byteLength < file.size) {
+        bestEncoded = losslessBuf;
+        bestColors = 256;
+      } else {
+        const stepCandidates = [192, 128, 96, 64, 48, 32, 16];
+        for (const c of stepCandidates) {
+          if (c >= userColors) continue;
+          const candidate = encodeQuantized(c);
+          if (candidate.byteLength < file.size) {
+            bestEncoded = candidate;
+            bestColors = c;
+            break;
+          }
+          if (candidate.byteLength < bestEncoded.byteLength) {
+            bestEncoded = candidate;
+            bestColors = c;
+          }
+        }
+      }
+    }
+  } else {
+    // Automatic compression mode guided by quality
+    const targetColors = clampColors(Math.round(2 + (quality / 100) * 254));
+    const quantEncoded = encodeQuantized(targetColors);
+
+    bestEncoded = quantEncoded;
+    bestColors = targetColors;
+
+    if (quantEncoded.byteLength < file.size) {
+      if (losslessBuf && losslessBuf.byteLength < quantEncoded.byteLength) {
+        bestEncoded = losslessBuf;
+        bestColors = 256;
+      }
+    } else {
+      if (losslessBuf && losslessBuf.byteLength < file.size) {
+        bestEncoded = losslessBuf;
+        bestColors = 256;
+      } else {
+        const stepCandidates = [192, 128, 96, 64, 48, 32, 16];
+        for (const c of stepCandidates) {
+          if (c >= targetColors) continue;
+          const candidate = encodeQuantized(c);
+          if (candidate.byteLength < file.size) {
+            bestEncoded = candidate;
+            bestColors = c;
+            break;
+          }
+          if (candidate.byteLength < bestEncoded.byteLength) {
+            bestEncoded = candidate;
+            bestColors = c;
+          }
+        }
+      }
+    }
+  }
+
+  if (!bestEncoded && losslessBuf) {
+    bestEncoded = losslessBuf;
+    bestColors = 256;
+  }
+
+  if (!bestEncoded) {
+    return {
+      blob: file,
+      width,
+      height,
+      colors: 256,
+    };
+  }
+
   return {
-    blob: file,
-    width: 0,
-    height: 0,
-    colors: 256,
+    blob: new Blob([bestEncoded.buffer as ArrayBuffer], { type: 'image/png' }),
+    width,
+    height,
+    colors: bestColors,
   };
 }
 

@@ -1,5 +1,7 @@
 import type { AppTab, CompressionSettings, ImageFormat } from '../types/compressor';
 import { compressGif, compressPng } from './palette';
+import UPNG from 'upng-js';
+import { quantize, applyPalette } from 'gifenc';
 
 export const MAX_FILES = 20;
 
@@ -169,23 +171,86 @@ export async function convertImage(
   isOptimizedOnly?: boolean;
 }> {
   const img = await loadImage(file);
-  const result = await renderToBlob(img, targetFormat, quality);
+  const width = img.naturalWidth || 800;
+  const height = img.naturalHeight || 600;
 
-  // If the converted image cannot be smaller than the original file,
-  // keep the original file and its original size stable (do not inflate the size).
-  if (result.blob.size >= file.size) {
-    const originalBlob = new Blob([await file.arrayBuffer()], {
-      type: MIME_BY_FORMAT[targetFormat] || file.type,
-    });
+  if (targetFormat === 'png') {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to get canvas context');
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const rawData = imgData.data;
+
+    let hasAlpha = false;
+    for (let i = 0; i < rawData.length; i += 4) {
+      if (rawData[i + 3] < 255) {
+        hasAlpha = true;
+        break;
+      }
+    }
+    const quantFormat = hasAlpha ? 'rgba4444' : 'rgb565';
+
+    // 1. Lossless truecolor PNG
+    let bestBlob: Blob;
+    try {
+      const losslessBuf = new Uint8Array(UPNG.encode([rawData.buffer], width, height, 0));
+      bestBlob = new Blob([losslessBuf.buffer as ArrayBuffer], { type: 'image/png' });
+    } catch {
+      bestBlob = await new Promise<Blob>((res, rej) =>
+        canvas.toBlob((b) => (b ? res(b) : rej(new Error('Canvas toBlob failed'))), 'image/png')
+      );
+    }
+
+    // 2. Compare against native canvas PNG
+    try {
+      const canvasBlob = await new Promise<Blob | null>((res) => canvas.toBlob((b) => res(b), 'image/png'));
+      if (canvasBlob && canvasBlob.size < bestBlob.size) {
+        bestBlob = canvasBlob;
+      }
+    } catch {
+      // Keep bestBlob
+    }
+
+    // 3. If PNG is larger than source file and quality < 100, optimize palette to avoid size inflation
+    if (file.size > 0 && bestBlob.size > file.size && quality < 100) {
+      try {
+        const pal = quantize(rawData, 256, { format: quantFormat });
+        const idx = applyPalette(rawData, pal, quantFormat);
+        const rec = new Uint8Array(width * height * 4);
+        for (let i = 0; i < width * height; i++) {
+          const c = pal[idx[i]];
+          rec[i * 4] = c[0];
+          rec[i * 4 + 1] = c[1];
+          rec[i * 4 + 2] = c[2];
+          rec[i * 4 + 3] = hasAlpha ? c[3] : 255;
+        }
+        const quantizedBuf = new Uint8Array(UPNG.encode([rec.buffer], width, height, 0));
+        if (quantizedBuf.byteLength < bestBlob.size) {
+          bestBlob = new Blob([quantizedBuf.buffer as ArrayBuffer], { type: 'image/png' });
+        }
+      } catch {
+        // Keep bestBlob
+      }
+    }
+
     return {
-      blob: originalBlob,
-      width: result.width,
-      height: result.height,
+      blob: bestBlob,
+      width,
+      height,
       appliedQuality: quality,
-      isOptimizedOnly: true,
+      isOptimizedOnly: false,
     };
   }
 
+  // Other formats: jpeg, webp, avif
+  const result = await renderToBlob(img, targetFormat, quality);
   return { ...result, appliedQuality: quality, isOptimizedOnly: false };
 }
 
@@ -206,7 +271,7 @@ export async function compressImage(
   let result: { blob: Blob; width: number; height: number };
 
   if (format === 'png') {
-    const png = await compressPng(file, settings.maxColors);
+    const png = await compressPng(file, settings.maxColors, appliedQuality);
     appliedColors = png.colors;
     result = png;
   } else if (format === 'gif') {
