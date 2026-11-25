@@ -9,7 +9,6 @@ export interface PaletteResult {
   colors: number;
 }
 
-const MAX_BYTES = 25 * 1024; // 25 KB
 const clampColors = (value: number) => Math.min(256, Math.max(2, Math.round(value)));
 
 export function countColors(rgba: Uint8Array, limit = 256): number {
@@ -27,72 +26,9 @@ export async function compressPng(file: Blob, maxColors?: number): Promise<Palet
   const decoded = UPNG.decode(await file.arrayBuffer());
   const frames = UPNG.toRGBA8(decoded);
   const delays = decoded.frames.map((f) => f.delay);
-  let colors = clampColors(maxColors ?? countColors(new Uint8Array(frames[0])));
+  const colors = clampColors(maxColors ?? countColors(new Uint8Array(frames[0])));
 
-  let encoded = UPNG.encode(frames, decoded.width, decoded.height, colors, frames.length > 1 ? delays : undefined);
-
-  // If size > 25KB, optimize colors and downscale if necessary
-  if (encoded.byteLength > MAX_BYTES && frames.length === 1) {
-    let testColors = Math.min(colors, 128);
-    while (encoded.byteLength > MAX_BYTES && testColors >= 8) {
-      const reEncoded = UPNG.encode(frames, decoded.width, decoded.height, testColors);
-      if (reEncoded.byteLength < encoded.byteLength) {
-        encoded = reEncoded;
-        colors = testColors;
-      }
-      testColors = Math.floor(testColors / 2);
-    }
-
-    // Downscale if still exceeding 25KB
-    if (encoded.byteLength > MAX_BYTES && typeof document !== 'undefined') {
-      try {
-        const url = URL.createObjectURL(file);
-        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const i = new Image();
-          i.onload = () => resolve(i);
-          i.onerror = reject;
-          i.src = url;
-        });
-        URL.revokeObjectURL(url);
-
-        let scale = Math.min(0.9, Math.sqrt(MAX_BYTES / encoded.byteLength) * 0.95);
-        let attempts = 0;
-        let finalW = decoded.width;
-        let finalH = decoded.height;
-
-        while (encoded.byteLength > MAX_BYTES && attempts < 8) {
-          attempts++;
-          const targetW = Math.max(1, Math.round(decoded.width * scale));
-          const targetH = Math.max(1, Math.round(decoded.height * scale));
-          const canvas = document.createElement('canvas');
-          canvas.width = targetW;
-          canvas.height = targetH;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, targetW, targetH);
-            const imgData = ctx.getImageData(0, 0, targetW, targetH);
-            const reEncoded = UPNG.encode([imgData.data.buffer], targetW, targetH, Math.min(colors, 64));
-            if (reEncoded.byteLength < encoded.byteLength) {
-              encoded = reEncoded;
-              finalW = targetW;
-              finalH = targetH;
-              colors = Math.min(colors, 64);
-            }
-          }
-          scale *= 0.75;
-        }
-
-        return {
-          blob: new Blob([encoded], { type: 'image/png' }),
-          width: finalW,
-          height: finalH,
-          colors,
-        };
-      } catch {
-        // Fallback to encoded
-      }
-    }
-  }
+  const encoded = UPNG.encode(frames, decoded.width, decoded.height, colors, frames.length > 1 ? delays : undefined);
 
   return { blob: new Blob([encoded], { type: 'image/png' }), width: decoded.width, height: decoded.height, colors };
 }

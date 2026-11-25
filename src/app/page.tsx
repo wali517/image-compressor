@@ -22,14 +22,14 @@ import { Footer } from '../components/Footer';
 
 const COPY: Record<AppTab, { title: string; text: string; steps: [string, string] }> = {
   compressor: {
-    title: 'Compress Images Online (Max 25 KB)',
-    text: 'Shrink JPEG, PNG, WebP, GIF and AVIF files to 25 KB or less right in your browser. Nothing is uploaded, and metadata is removed from the results.',
-    steps: ['Drop JPEG, PNG, WebP, GIF or AVIF images (up to 20).', 'Click COMPRESS to reduce size to under 25 KB, then save or fine-tune quality.'],
+    title: 'Compress Images Online',
+    text: 'Shrink JPEG, PNG, WebP, GIF and AVIF files right in your browser. Nothing is uploaded, and metadata is removed from the results.',
+    steps: ['Drop JPEG, PNG, WebP, GIF or AVIF images (up to 20).', 'Click COMPRESS, then save or fine-tune quality.'],
   },
   converter: {
-    title: 'Convert Images Online (Max 25 KB)',
-    text: 'Turn JPEG, PNG, WebP, GIF and AVIF images into JPG, PNG, WebP or AVIF with automatic compression under 25 KB.',
-    steps: ['Drop or select up to 20 images.', 'Pick JPG (or another format), click CONVERT, then save each file.'],
+    title: 'Convert Images Online',
+    text: 'Turn JPEG, PNG, WebP, GIF and AVIF images into JPG, PNG, WebP or AVIF without leaving the page.',
+    steps: ['Drop or select up to 20 images.', 'Pick an output format, click CONVERT, then save each file.'],
   },
   exif: {
     title: 'View, Search and Remove File Metadata',

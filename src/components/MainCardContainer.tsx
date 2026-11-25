@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import type { CompressedFileItem, AppTab, ImageFormat } from '../types/compressor';
-import { acceptAttribute, formatBytes } from '../lib/compressor';
+import { acceptAttribute } from '../lib/compressor';
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2, Settings, X } from 'lucide-react';
 
 interface MainCardContainerProps {
@@ -189,9 +189,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
           ? FORMAT_LABEL[item.settings.format ?? item.format]
           : item.savingsPercentage > 0
             ? `-${item.savingsPercentage}%`
-            : item.compressedSize <= 25600
-              ? `${formatBytes(item.compressedSize)}`
-              : null;
+            : null;
       if (!label) return null;
       return (
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
@@ -276,7 +274,7 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
               onClick={() => inputRef.current?.click()}
               className="absolute inset-[0.5em_3em] border-2 border-dashed border-[#b5cef2] rounded-lg flex items-center justify-center cursor-pointer transition-colors hover:border-[#8ab5ee]"
             >
-              <p className="text-base font-semibold text-[#b5cef2] tracking-wide">Drop Your Files Here (Max 25 KB Output)</p>
+              <p className="text-base font-semibold text-[#b5cef2] tracking-wide">Drop Your Files Here</p>
             </div>
           ) : (
             <div ref={scrollRef} className="w-full h-full flex items-center space-x-3 overflow-x-auto px-12 py-2 scrollbar-none">
@@ -341,36 +339,31 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
 
         <div className="flex items-center justify-center flex-wrap gap-4">
           {activeTab === 'converter' && (
-            <div className="flex items-center gap-2">
-              <div className="inline-flex rounded-md border border-slate-300 overflow-hidden text-xs font-bold h-[2.5em]">
-                {TARGET_FORMATS.map((fmt) => {
-                  const isSelected = targetFormat === fmt;
-                  const unsupported = unsupportedFormats.includes(fmt);
-                  const disabled = items.length === 0 || unsupported;
-                  return (
-                    <button
-                      key={fmt}
-                      onClick={() => onTargetFormatChange(fmt)}
-                      disabled={disabled}
-                      title={unsupported ? `Your browser cannot create ${FORMAT_LABEL[fmt]} images` : undefined}
-                      className={`px-4 transition-colors border-r border-slate-300 last:border-r-0 ${
-                        isSelected
-                          ? items.length === 0
-                            ? 'bg-slate-400 text-white'
-                            : 'bg-[#38404B] text-white'
-                          : disabled
-                            ? 'bg-white text-slate-300 cursor-not-allowed'
-                            : 'bg-white text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      {FORMAT_LABEL[fmt]}
-                    </button>
-                  );
-                })}
-              </div>
-              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">
-                Max 25 KB
-              </span>
+            <div className="inline-flex rounded-md border border-slate-300 overflow-hidden text-xs font-bold h-[2.5em]">
+              {TARGET_FORMATS.map((fmt) => {
+                const isSelected = targetFormat === fmt;
+                const unsupported = unsupportedFormats.includes(fmt);
+                const disabled = items.length === 0 || unsupported;
+                return (
+                  <button
+                    key={fmt}
+                    onClick={() => onTargetFormatChange(fmt)}
+                    disabled={disabled}
+                    title={unsupported ? `Your browser cannot create ${FORMAT_LABEL[fmt]} images` : undefined}
+                    className={`px-4 transition-colors border-r border-slate-300 last:border-r-0 ${
+                      isSelected
+                        ? items.length === 0
+                          ? 'bg-slate-400 text-white'
+                          : 'bg-[#38404B] text-white'
+                        : disabled
+                          ? 'bg-white text-slate-300 cursor-not-allowed'
+                          : 'bg-white text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {FORMAT_LABEL[fmt]}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -400,11 +393,6 @@ export const MainCardContainer: React.FC<MainCardContainerProps> = ({
             </button>
           ) : (
             <>
-              {activeTab === 'compressor' && (
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">
-                  Max 25 KB
-                </span>
-              )}
               <button
                 onClick={onCompressAll}
                 disabled={pendingCount === 0 || isProcessing}
