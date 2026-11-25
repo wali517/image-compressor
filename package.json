@@ -13,7 +13,7 @@
     "gifuct-js": "^2.1.2",
     "jszip": "^3.10.2",
     "lucide-react": "^1.52.0",
-    "next": "latest",
+    "next": "^16.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "upng-js": "^2.1.0"
